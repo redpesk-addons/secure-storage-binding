@@ -1,0 +1,60 @@
+<html>
+
+<meta charset="utf-8" />
+
+<head>
+	<title>Simple Secure Storage binding Test</title>
+	<link rel="stylesheet" href="iotbzh-Binding.css">
+	<link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+	<script type="text/javascript" src="AFB-websock.js"></script>
+	<script type="text/javascript" src="iotbzh-Binding.js"></script>
+</head>
+
+<body class="page-content" onload="init()">
+
+	<img src="assets/iot-bzh-logo-small.png">
+
+	<h1>Simple Secure Storage binding Test</h1>
+
+	<button id="connected" onclick="init()">Binder WS Fail</button>
+	<button id="monitoring"
+		onclick="window.open('/monitoring/monitor.html','_monitor_ctl')">Debug/Monitoring</a></button>
+	<br><br>
+
+	<div>
+		<button onclick="callbinder('secstorage','read' ,{'key':read_key.value});">read</button>
+		</li>
+		key
+		<input type="text" id="read_key" name="readkey" required minlength="4" size="10">
+	</div>
+
+	<div>
+		<button
+			onclick="callbinder('secstorage','write' ,{'key':write_key.value, 'value':write_value.value});">write</button>
+		</li>
+		key
+		<input type="text" id="write_key" name="write_key" required minlength="4" size="10">
+		value
+		<input type="text" id="write_value" name="write_value" required minlength="4" size="10">
+	</div>
+
+	<div>
+		<button onclick="callbinder('secstorage','delete' ,{'key':delete_key.value});">delete</button>
+		</li>
+		key
+		<input type="text" id="delete_key" name="delete_key" required minlength="4" size="10">
+	</div>
+
+	<br>
+
+	<div id="main" style="visibility:hidden">
+		<ol>
+			<li>Question
+				<pre id="question"></pre>
+			</li>
+			<li>Response
+				<pre id="output"></pre>
+			</li>
+		</ol>
+	</div>
+</body>
