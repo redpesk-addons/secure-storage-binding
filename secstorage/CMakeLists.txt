@@ -16,8 +16,14 @@
 
 # Add target to project dependency list
 PROJECT_TARGET_ADD(service-secure-storage)
+	SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/../conf.d/cmake/)
+	find_package(BerkeleyDB REQUIRED)
+
+	include_directories(${DB_INCLUDE_DIR})
 	# Define project Targets
-	ADD_LIBRARY(${TARGET_NAME} MODULE secure-storage-service-binding.c secure-storage.c)
+	ADD_LIBRARY(${TARGET_NAME} MODULE secure-storage-service-binding.c)
+	TARGET_LINK_LIBRARIES(${TARGET_NAME} ${DB_LIBRARY})
+
 
 	# Binder exposes a unique public entry point
 	SET_TARGET_PROPERTIES(${TARGET_NAME} PROPERTIES
