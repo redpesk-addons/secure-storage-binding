@@ -18,16 +18,34 @@
 #include <string.h>
 #include <limits.h>
 #include <json-c/json.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
 
 #define AFB_BINDING_VERSION 3
 #include <afb/afb-binding.h>
 
 #include <db.h>
 
+#ifndef ALLOW_SECS_ADMIN
+#define ALLOW_SECS_ADMIN 1
+#endif
+
+#ifndef ALLOW_SECS_GLOBAL
+#define ALLOW_SECS_GLOBAL 1
+#endif
+
 #define DB_FILE "secstorage.db"			  /* DB On-disk file name*/
 #define DB_PASSWD_FILE "/tmp/test.passwd" /* DB PASSWD On-disk file name*/
-static DB *dbp;							  /* DB structure handle */
-static int global_storage;
+static DB *dbp;
+/* DB structure handle */
+
+#define DATA_PTR(k) ((void *)((k).data))
+#define DATA_STR(k) ((char *)((k).data))
+
+#define VALUE_MAX_LEN 4096
+#define KEY_MAX_LEN 4096
+#define DB_MAX_SIZE 16777216
 
 #define DATA_SET(k, d, s)            \
 	do                               \
@@ -36,9 +54,15 @@ static int global_storage;
 		(k)->data = (void *)d;       \
 		(k)->size = (uint32_t)s;     \
 	} while (0)
-#define DATA_PTR(k) ((void *)((k).data))
-#define DATA_STR(k) ((char *)((k).data))
-#define VALUE_MAX_LEN 4096
+
+#ifdef ALLOW_SECS_ADMIN
+static DBC *cursor;
+static char cursor_key_pass[KEY_MAX_LEN] = "";
+#endif
+
+#ifdef ALLOW_SECS_GLOBAL
+#define GLOBAL_PATH "/global"
+#endif
 
 static int get_passwd(char *db_passwd)
 {
@@ -52,8 +76,6 @@ static int get_passwd(char *db_passwd)
 		AFB_API_ERROR(afbBindingRoot, "Failed to open DB file passwd: %s", DB_PASSWD_FILE);
 		return -1;
 	}
-
-	AFB_API_NOTICE(afbBindingRoot, "DB DB_PASSWD_FILE: \"%s\"", DB_PASSWD_FILE);
 
 	int res = fscanf(fp, "%s", db_passwd);
 
@@ -88,8 +110,6 @@ static int open_database(const char *path)
 		AFB_API_ERROR(afbBindingRoot, "Failed to get database password.");
 		return -1;
 	}
-
-	AFB_API_NOTICE(afbBindingRoot, "DB passwd: \"%s\"", db_passwd); //RLM
 
 	dbp->set_encrypt(dbp,			  /* DB structure pointer */
 					 db_passwd,		  /*Passworld to  encryption/decryption of the database*/
@@ -132,7 +152,9 @@ static int get_db_path(char *buffer, size_t size)
 
 	afb_workdir = secure_getenv("AFB_WORKDIR");
 	if (afb_workdir)
+	{
 		res = snprintf(buffer, size, "%s/%s", afb_workdir, DB_FILE);
+	}
 	else
 	{
 		AFB_API_WARNING(afbBindingRoot, "Failed to find AFB_WORKDIR");
@@ -151,19 +173,12 @@ static int get_db_path(char *buffer, size_t size)
 /**
  * Returns the database key for the 'req'
  */
-static int get_key(afb_req_t req, DBT *key)
+static int get_rawkey(afb_req_t req, const char **req_key)
 {
-	char *appid;
-	char *data;
-	const char *req_key;
-
 	size_t lreq_key;
-	size_t lappid;
-	size_t size;
 
 	struct json_object *args;
 	struct json_object *item;
-
 	/* get the key */
 	args = afb_req_json(req);
 	if (!json_object_object_get_ex(args, "key", &item))
@@ -171,16 +186,93 @@ static int get_key(afb_req_t req, DBT *key)
 		afb_req_reply(req, NULL, "no-key", NULL);
 		return -1;
 	}
-
-	if (!item || !(req_key = json_object_get_string(item)) || !(lreq_key = strlen(req_key)))
+	if (!item || !((*req_key) = json_object_get_string(item)) || !(lreq_key = strlen(*req_key)))
 	{
 		afb_req_reply(req, NULL, "bad-key", NULL);
 		return -1;
 	}
+	return 0;
+}
 
-	if (global_storage)
+/**
+ * Returns the database key for the 'req'
+ */
+static int get_path(afb_req_t req, char *path)
+{
+	size_t lreq_key;
+	const char *req_key;
+	struct json_object *args;
+	struct json_object *item;
+	/* get the key */
+	args = afb_req_json(req);
+	if (!json_object_object_get_ex(args, "path", &item))
 	{
-		DATA_SET(key, req_key, lreq_key);
+		afb_req_reply(req, NULL, "no-path", NULL);
+		return -1;
+	}
+	if (!item || !(req_key = json_object_get_string(item)) || !(lreq_key = strlen(req_key)))
+	{
+		afb_req_reply(req, NULL, "bad-path", NULL);
+		return -1;
+	}
+	strcpy(path, req_key);
+	return 0;
+}
+
+#ifdef ALLOW_SECS_ADMIN
+static int get_admin_key(afb_req_t req, char *data, int check_patch_end)
+{
+	const char *req_key = NULL;
+	if (get_rawkey(req, &req_key))
+	{
+		return -1;
+	}
+	if (!check_patch_end ^ (req_key[strlen(req_key) - 1] == '/'))
+	{
+		if (check_patch_end)
+		{ //The key name can contain path separators, '/', to
+			//* help organize an app's data.  Key names cannot contain a trailing separator.
+			AFB_API_ERROR(afbBindingRoot, "Forbiden use of char \"%s\" at the end of key request", "/");
+			afb_req_reply(req, NULL, "Forbiden char at the end of key request", NULL);
+			return -1;
+		}
+		else
+		{
+			AFB_API_ERROR(afbBindingRoot, "Path requested must end with \"%s\"", "/");
+			afb_req_reply(req, NULL, "Forbiden Path format", NULL);
+			return -1;
+		}
+	}
+	strcpy(data, req_key);
+	return 0;
+}
+#endif
+
+/**
+ * Returns the database key for the 'req'
+ */
+static int get_key(afb_req_t req, char *data, int global)
+{
+	char *appid;
+	const char *req_key;
+
+	if (get_rawkey(req, &req_key))
+	{
+		return -1;
+	}
+
+	//The key name can contain path separators, '/', to
+	//* help organize an app's data.  Key names cannot contain a trailing separator.
+	if (req_key[strlen(req_key) - 1] == '/')
+	{
+		AFB_API_ERROR(afbBindingRoot, "Forbiden use of char \"%s\" at the end of key request", "/");
+		afb_req_reply(req, NULL, "Forbiden char at the end of key request", NULL);
+		return -1;
+	}
+
+	if (global)
+	{
+		appid = GLOBAL_PATH;
 	}
 	else
 	{
@@ -191,23 +283,29 @@ static int get_key(afb_req_t req, DBT *key)
 			afb_req_reply(req, NULL, "bad-context", NULL);
 			return -1;
 		}
-
-		/* make the db-key */
-		lappid = strlen(appid);
-		size = lappid + lreq_key + 2;
-		data = realloc(appid, size);
-		if (!data)
+		if (!strcat(data, "/"))
 		{
-			free(appid);
-			afb_req_reply(req, NULL, "out-of-memory", NULL);
+			afb_req_reply(req, NULL, "first char of the key generation failed", NULL);
 			return -1;
 		}
-		data[lappid] = '/';
-		memcpy(&data[lappid + 1], req_key, lreq_key + 1);
-		/* return the key */
-		DATA_SET(key, data, size);
 	}
 
+	if (!strcat(data, appid))
+	{
+		afb_req_reply(req, NULL, "key generation from application id failed", NULL);
+		return -1;
+	}
+
+	if (!strcat(data, "/"))
+	{
+		afb_req_reply(req, NULL, "key generation failed", NULL);
+		return -1;
+	}
+	if (!strcat(data, req_key))
+	{
+		afb_req_reply(req, NULL, "key generation from json key failed", NULL);
+		return -1;
+	}
 	return 0;
 }
 
@@ -235,8 +333,640 @@ static int get_value(afb_req_t req, DBT *data)
 		return -1;
 	}
 	DATA_SET(data, value, strlen(value) + 1); /* includes the tailing null */
-
 	return 0;
+}
+
+/**
+ * @brief API read
+ */
+static void p_secs_raw_read(afb_req_t req, DBT *key)
+{
+	DBT data;
+	memset(&data, 0, sizeof(DBT));
+	int res;
+
+	unsigned char value[VALUE_MAX_LEN] = "";
+
+	struct json_object *result;
+	struct json_object *val;
+
+	AFB_API_DEBUG(afbBindingRoot, "read: key=%s", DATA_STR(*key));
+
+	data.data = value;
+	data.ulen = VALUE_MAX_LEN;
+	data.flags = DB_DBT_USERMEM;
+
+	res = dbp->get(dbp, NULL, key, &data, 0);
+	if (res == 0)
+	{
+		result = json_object_new_object();
+		val = json_tokener_parse(DATA_STR(data));
+		json_object_object_add(result, "value", val ? val : json_object_new_string(DATA_STR(data)));
+
+		afb_req_reply_f(req, result, NULL, "db success: read %s=%s.", DATA_STR(*key), DATA_STR(data));
+	}
+	else
+	{
+		afb_req_reply_f(req, NULL, "Failed to read datas.", "db fail: read key %s - %s\n", DATA_STR(*key), db_strerror(res));
+	}
+}
+
+/**
+ * @brief API write
+ */
+static void p_secs_raw_write(afb_req_t req, DBT *key, DBT *data)
+{
+	AFB_API_DEBUG(afbBindingRoot, "put: key=\"%s\", value=\"%s\"", DATA_STR(*key), DATA_STR(*data));
+
+	int res = dbp->put(dbp, NULL, key, data, DB_OVERWRITE_DUP);
+
+	if (res == 0)
+	{
+		afb_req_reply(req, NULL, NULL, NULL);
+	}
+	else
+	{
+		AFB_API_ERROR(afbBindingRoot, "Failed to insert %s with %s", DATA_STR(*key), DATA_STR(*data));
+		afb_req_reply_f(req, NULL, "failed", "%s", db_strerror(res));
+	}
+	secs_sync_database();
+	return;
+}
+
+/**
+ * @brief API delete
+ */
+static void p_secs_raw_delete(afb_req_t req, DBT *key)
+{
+
+	AFB_API_DEBUG(afbBindingRoot, "delete: key=%s", DATA_STR(*key));
+
+	int ret;
+	ret = dbp->del(dbp, NULL, key, 0);
+	if (ret == 0)
+	{
+		afb_req_reply_f(req, NULL, NULL, NULL);
+	}
+	else
+	{
+		AFB_API_ERROR(afbBindingRoot, "can't delete key %s", DATA_STR(*key));
+		afb_req_reply_f(req, NULL, "failed", "%s", db_strerror(ret));
+	}
+
+	secs_sync_database();
+}
+
+/**
+ * @brief API read
+ */
+static void p_secs_read(afb_req_t req, int global)
+{
+	DBT key;
+	char kdata[KEY_MAX_LEN] = "";
+
+	if (get_key(req, kdata, global))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
+	}
+	DATA_SET(&key, kdata, strlen(kdata) + 1);
+	p_secs_raw_read(req, &key);
+}
+
+/**
+ * @brief API write
+ */
+static void p_secs_write(afb_req_t req, int global)
+{
+	DBT key;
+	DBT value;
+	memset(&value, 0, sizeof(DBT));
+	char kdata[KEY_MAX_LEN] = "";
+	/* get the key */
+	if (get_key(req, kdata, global))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secs_write:Failed to get req key parameter");
+		return;
+	}
+
+	/* get the value */
+	if (get_value(req, &value))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secs_write:Failed to get req value parameter");
+		return;
+	}
+	DATA_SET(&key, kdata, strlen(kdata) + 1);
+	p_secs_raw_write(req, &key, &value);
+}
+
+/**
+ * @brief API delete
+ */
+static void p_secs_delete(afb_req_t req, int global)
+{
+	DBT key;
+	char kdata[KEY_MAX_LEN] = "";
+
+	if (get_key(req, kdata, global))
+	{
+		return;
+	}
+	DATA_SET(&key, kdata, strlen(kdata) + 1);
+	p_secs_raw_delete(req, &key);
+}
+
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Writes an item to secure storage. If the item already exists, it'll be overwritten with
+ * the new value. If the item doesn't already exist, it'll be created.
+ * If the item name is not valid or the buffer is NULL, this function will kill the calling client.
+ *
+ */
+static void secs_Write(afb_req_t req)
+{
+	p_secs_write(req, 0);
+}
+
+/**
+ * Reads an item from secure storage.
+ * If the item name is not valid or the buffer is NULL, this function will kill the calling client.
+ *
+ */
+static void secs_Read(afb_req_t req)
+{
+	p_secs_read(req, 0);
+}
+
+/**
+ * Deletes an item from secure storage.
+ * If the item name is not valid, this function will kill the calling client.
+ *
+ */
+static void secs_Delete(afb_req_t req)
+{
+	p_secs_delete(req, 0);
+}
+//--------------------------------------------------------------------------------------------------
+
+#ifdef ALLOW_SECS_GLOBAL
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Writes an item to secure storage. If the item already exists, it'll be overwritten with
+ * the new value. If the item doesn't already exist, it'll be created.
+ * If the item name is not valid or the buffer is NULL, this function will kill the calling client.
+ *
+ */
+static void secs_Write_global(afb_req_t req)
+{
+	p_secs_write(req, 1);
+}
+
+/**
+ * Reads an item from secure storage.
+ * If the item name is not valid or the buffer is NULL, this function will kill the calling client.
+ *
+ */
+static void secs_Read_global(afb_req_t req)
+{
+	p_secs_read(req, 1);
+}
+
+/**
+ * Deletes an item from secure storage.
+ * If the item name is not valid, this function will kill the calling client.
+ *
+ */
+static void secs_Delete_global(afb_req_t req)
+{
+	p_secs_delete(req, 1);
+}
+//--------------------------------------------------------------------------------------------------
+#endif
+
+long int getdbsize()
+{
+	char db_path[PATH_MAX] = "";
+
+	int res = get_db_path(db_path, sizeof db_path);
+	if (res < 0 || (int)res >= (int)(sizeof db_path))
+	{
+		return -1;
+	}
+	FILE *fp;
+	secs_sync_database();
+	fp = fopen(db_path, "r");
+
+	fseek(fp, 0L, SEEK_END);
+
+	return ftell(fp);
+}
+
+int compare_key_path(char *first_key, char *second_second)
+{
+	while (*first_key == *second_second)
+	{
+		if (*first_key == '\0' || *second_second == '\0')
+			break;
+
+		first_key++;
+		second_second++;
+	}
+
+	if (*first_key == '\0')
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+static int copy_db_file(const char *from, const char *to)
+{
+	AFB_API_NOTICE(afbBindingRoot, "copy %s to %s.", to, from);
+	int fd_to, fd_from;
+	char buf[4096];
+	ssize_t nread;
+	int saved_errno;
+
+	fd_from = open(from, O_RDONLY);
+	if (fd_from < 0)
+	{
+		AFB_API_NOTICE(afbBindingRoot, "Open %s failed", from);
+		return -1;
+	}
+
+	fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
+	if (fd_to < 0)
+		goto out_error;
+
+	AFB_API_NOTICE(afbBindingRoot, "Start copy");
+	while (nread = read(fd_from, buf, sizeof buf), nread > 0)
+	{
+		char *out_ptr = buf;
+		ssize_t nwritten;
+		do
+		{
+			nwritten = write(fd_to, out_ptr, nread);
+
+			if (nwritten >= 0)
+			{
+				nread -= nwritten;
+				out_ptr += nwritten;
+			}
+			else if (errno != EINTR)
+			{
+				goto out_error;
+			}
+		} while (nread > 0);
+	}
+
+	AFB_API_NOTICE(afbBindingRoot, "End copy");
+	if (nread == 0)
+	{
+		if (close(fd_to) < 0)
+		{
+			fd_to = -1;
+			goto out_error;
+		}
+		close(fd_from);
+
+		/* Success! */
+		return 0;
+	}
+
+out_error:
+	AFB_API_NOTICE(afbBindingRoot, "out_error");
+	saved_errno = errno;
+
+	close(fd_from);
+	if (fd_to >= 0)
+		close(fd_to);
+
+	errno = saved_errno;
+	return -1;
+}
+//--------------------------------------------------------------------------------------------------
+#ifdef ALLOW_SECS_ADMIN
+
+/**
+ * Create an iterator for listing entries in secure storage under the specified path.
+ */
+static void secStoreAdmin_CreateIter(afb_req_t req)
+{
+	if (cursor)
+	{
+		cursor->close(cursor);
+	}
+	if (get_admin_key(req, cursor_key_pass, 0))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
+		return;
+	}
+
+	if (dbp->cursor(dbp, NULL, &cursor, 0))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secStoreAdmin_createiter:Failed to init cursor");
+		return;
+	}
+
+	afb_req_reply(req, NULL, NULL, NULL);
+}
+
+/**
+ * Deletes an iterator.
+ */
+static void secStoreAdmin_DeleteIter(afb_req_t req)
+{
+	if (cursor->del(cursor, 0))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secStoreAdmin_deleteIter:Failed to delete cursor");
+		return;
+	}
+	else
+	{
+		afb_req_reply(req, NULL, NULL, NULL);
+	}
+}
+
+/**
+ * Go to the next entry in the iterator.  This should be called at least once before accessing the
+ * entry.  After the first time this function is called successfully on an iterator the first entry
+ * will be available.
+ */
+static void secStoreAdmin_Next(afb_req_t req)
+{
+	DBT ckey;
+	DBT cvalue;
+	memset(&ckey, 0, sizeof(DBT));
+	memset(&cvalue, 0, sizeof(DBT));
+
+	while (!cursor->get(cursor, &ckey, &cvalue, DB_NEXT))
+	{
+		if (compare_key_path(cursor_key_pass, DATA_STR(ckey)))
+		{
+			break;
+		}
+	}
+	afb_req_reply(req, NULL, NULL, NULL);
+}
+
+/**
+ * Get the current entry's name.
+ */
+static void secStoreAdmin_GetEntry(afb_req_t req)
+{
+	DBT ckey;
+	DBT cvalue;
+	int res;
+	struct json_object *result;
+	struct json_object *val;
+
+	memset(&ckey, 0, sizeof(DBT));
+	memset(&cvalue, 0, sizeof(DBT));
+	res = cursor->get(cursor, &ckey, &cvalue, DB_CURRENT);
+
+	if (res == 0)
+	{
+		result = json_object_new_object();
+		val = json_tokener_parse(DATA_STR(cvalue));
+		json_object_object_add(result, "value", val ? val : json_object_new_string(DATA_STR(ckey)));
+
+		afb_req_reply_f(req, result, NULL, "db success: read %s=%s.", DATA_STR(ckey), DATA_STR(cvalue));
+	}
+	else
+	{
+		afb_req_reply_f(req, NULL, "Failed to read datas.", "db fail: read current cursor value - %s\n", db_strerror(res));
+	}
+}
+
+/**
+ * Writes a buffer of data into the specified path in secure storage.  If the item already exists,
+ * it'll be overwritten with the new value. If the item doesn't already exist, it'll be created.
+ *
+ * @note
+ *      The specified path must be an absolute path.
+ */
+static void secStoreAdmin_Write(afb_req_t req)
+{
+	DBT key;
+	DBT value;
+	char kdata[KEY_MAX_LEN] = "";
+
+	memset(&value, 0, sizeof(DBT));
+
+	/* get the key */
+	if (get_admin_key(req, kdata, 1))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secs_write:Failed to get req key parameter");
+		return;
+	}
+	/* get the value */
+	if (get_value(req, &value))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secs_write:Failed to get req value parameter");
+		return;
+	}
+	DATA_SET(&key, kdata, strlen(kdata) + 1);
+	p_secs_raw_write(req, &key, &value);
+}
+
+/**
+ * Reads an item from secure storage.
+ *
+ * @note
+ *      The specified path must be an absolute path.
+ */
+static void secStoreAdmin_Read(afb_req_t req)
+{
+	DBT key;
+	char kdata[KEY_MAX_LEN] = "";
+
+	memset(&key, 0, sizeof(DBT));
+	memset(&key, 0, sizeof(DBT));
+	if (get_admin_key(req, kdata, 1))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
+		return;
+	}
+	DATA_SET(&key, kdata, strlen(kdata) + 1);
+	p_secs_raw_read(req, &key);
+	return;
+}
+
+/**
+ * Copy the meta file to the specified path.
+ */
+static void secStoreAdmin_CopyMetaTo(afb_req_t req)
+{
+	secs_sync_database();
+	char db_path[PATH_MAX] = "";
+	char db_path_dest[KEY_MAX_LEN] = "";
+
+	if (get_path(req, db_path_dest))
+	{
+		return;
+	}
+	int res = get_db_path(db_path, sizeof db_path);
+	if (res < 0 || (int)res >= (int)(sizeof db_path))
+	{
+		return;
+	};
+
+	copy_db_file(db_path, db_path_dest);
+
+	afb_req_reply(req, NULL, NULL, NULL);
+}
+
+/**
+ * Recursively deletes all items under the specified path and the specified path from secure
+ * storage.
+ *
+ * @note
+ *      The specified path must be an absolute path.
+ */
+static void secStoreAdmin_Delete(afb_req_t req)
+{
+	DBT key;
+	char kdata[KEY_MAX_LEN] = "";
+
+	memset(&key, 0, sizeof(DBT));
+
+	if (get_admin_key(req, kdata, 1))
+	{
+		return;
+	}
+	DATA_SET(&key, kdata, strlen(kdata) + 1);
+	p_secs_raw_delete(req, &key);
+}
+#endif
+
+/**
+ * Gets the size, in bytes, of all items under the specified path.
+ *
+ * @note
+ *      The specified path must be an absolute path.
+ */
+static void secStoreAdmin_GetSize(afb_req_t req)
+{
+	if (cursor)
+	{
+		cursor->close(cursor);
+	}
+	if (get_admin_key(req, cursor_key_pass, 0))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
+		return;
+	}
+
+	if (dbp->cursor(dbp, NULL, &cursor, 0))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secStoreAdmin_gettotalspace:Failed to init cursor");
+		return;
+	}
+	DBT ckey;
+	DBT cvalue;
+	memset(&ckey, 0, sizeof(DBT));
+	memset(&cvalue, 0, sizeof(DBT));
+
+	long int totalsize = 0;
+	while (!cursor->get(cursor, &ckey, &cvalue, DB_NEXT))
+	{
+		if (compare_key_path(cursor_key_pass, DATA_STR(ckey)))
+		{
+			totalsize += (cvalue.size) * 16;
+		}
+	}
+
+	struct json_object *result;
+	result = json_object_new_object();
+	json_object_object_add(result, "size", json_object_new_int64(totalsize));
+
+	afb_req_reply_f(req, result, NULL, "DB gettotalspace of %s is %li", cursor_key_pass, totalsize);
+}
+
+/**
+ * Gets the total space and the available free space in secure storage.
+ */
+static void secStoreAdmin_GetTotalSpace(afb_req_t req)
+{
+	struct json_object *result;
+	long int sz = getdbsize();
+	result = json_object_new_object();
+	json_object_object_add(result, "totalSize", json_object_new_int64(sz));
+	json_object_object_add(result, "freeSize", json_object_new_int64(DB_MAX_SIZE - sz));
+
+	afb_req_reply_f(req, result, NULL, "DB totalSize is %li freeSize %li", sz, DB_MAX_SIZE - sz);
+}
+
+//--------------------------------------------------------------------------------------------------
+
+static const struct afb_auth _afb_auths_v2_monitor[] = {
+	{.type = afb_auth_Permission, .text = "urn:AGL:permission:monitor:public:set"},
+	{.type = afb_auth_Permission, .text = "urn:AGL:permission:monitor:public:get"},
+	{.type = afb_auth_Or, .first = &_afb_auths_v2_monitor[1], .next = &_afb_auths_v2_monitor[0]}};
+
+static const afb_verb_t verbs[] = {
+	{.verb = "Write", .session = AFB_SESSION_NONE, .callback = secs_Write, .auth = NULL},
+	{.verb = "Read", .session = AFB_SESSION_NONE, .callback = secs_Read, .auth = NULL},
+	{.verb = "Delete", .session = AFB_SESSION_NONE, .callback = secs_Delete, .auth = NULL},
+	{NULL}};
+
+#ifdef ALLOW_SECS_GLOBAL
+static const afb_verb_t global_verbs[] = {
+	{.verb = "Write", .session = AFB_SESSION_NONE, .callback = secs_Write_global, .auth = NULL},
+	{.verb = "Read", .session = AFB_SESSION_NONE, .callback = secs_Read_global, .auth = NULL},
+	{.verb = "Delete", .session = AFB_SESSION_NONE, .callback = secs_Delete_global, .auth = NULL},
+	{NULL}};
+#endif
+
+static const afb_verb_t admin_verbs[] = {
+#ifdef ALLOW_SECS_ADMIN
+	{.verb = "CreateIter", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_CreateIter, .auth = NULL},
+	{.verb = "DeleteIter", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_DeleteIter, .auth = NULL},
+	{.verb = "Next", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_Next, .auth = NULL},
+	{.verb = "GetEntry", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_GetEntry, .auth = NULL},
+	{.verb = "Write", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_Write, .auth = NULL},
+	{.verb = "Read", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_Read, .auth = NULL},
+	{.verb = "CopyMetaTo", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_CopyMetaTo, .auth = NULL},
+	{.verb = "Delete", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_Delete, .auth = NULL},
+#endif
+	{.verb = "GetSize", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_GetSize, .auth = NULL},
+	{.verb = "GetTotalSpace", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_GetTotalSpace, .auth = NULL},
+	{NULL}};
+
+/**
+ * @brief pre Initialize the binding.
+ * @return Exit code, zero if success.
+ */
+static int preinit_secure_storage_binding(afb_api_t api)
+{
+	afb_api_t secStoreGlobal = afb_api_new_api(
+		api,
+		"secstoreglobal",
+		"This API provides global control for secure storage",
+		0,
+		NULL,
+		NULL);
+
+	afb_api_set_verbs_v3(
+		secStoreGlobal,
+		global_verbs);
+
+	afb_api_t secStoreAdmin = afb_api_new_api(
+		api,
+		"secstoreadmin",
+		"This API provides administrative control for secure storage",
+		0,
+		NULL,
+		NULL);
+
+	afb_api_set_verbs_v3(
+		secStoreAdmin,
+		admin_verbs);
+	return 1;
 }
 
 /**
@@ -247,8 +977,6 @@ static int init_secure_storage_binding(afb_api_t api)
 {
 	int res;
 	char db_path[PATH_MAX];
-
-	global_storage = 0;
 
 	res = get_db_path(db_path, sizeof db_path);
 	if (res < 0 || (int)res >= (int)(sizeof db_path))
@@ -261,130 +989,11 @@ static int init_secure_storage_binding(afb_api_t api)
 	return open_database(db_path);
 }
 
-/**
- * @brief API read
- */
-static void secs_read(afb_req_t req)
-{
-	DBT key;
-	DBT data;
-	int ret;
-
-	char value[VALUE_MAX_LEN];
-
-	struct json_object *result;
-	struct json_object *val;
-
-	if (get_key(req, &key))
-	{
-		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
-		return;
-	}
-
-	AFB_API_DEBUG(afbBindingRoot, "read: key=%s", DATA_STR(key));
-
-	memset(&data, 0, sizeof data);
-	data.data = value;
-	data.ulen = VALUE_MAX_LEN;
-	data.flags = DB_DBT_USERMEM;
-
-	ret = dbp->get(dbp, NULL, &key, &data, 0);
-	if (ret == 0)
-	{
-		result = json_object_new_object();
-		val = json_tokener_parse(DATA_STR(data));
-		json_object_object_add(result, "value", val ? val : json_object_new_string(DATA_STR(data)));
-
-		afb_req_reply_f(req, result, NULL, "db success: read %s=%s.", DATA_STR(key), DATA_STR(data));
-	}
-	else
-	{
-		afb_req_reply_f(req, NULL, "Failed to read datas.", "db fail: read %s - %s", DATA_STR(key), db_strerror(ret));
-	}
-
-	free(DATA_PTR(key));
-}
-
-/**
- * @brief API write
- */
-static void secs_write(afb_req_t req)
-{
-	DBT key;
-	DBT data;
-
-	/* get the key */
-	if (get_key(req, &key))
-	{
-		AFB_API_ERROR(afbBindingRoot, "secs_write:Failed to get req key parameter");
-		return;
-	}
-
-	/* get the value */
-	if (get_value(req, &data))
-	{
-		AFB_API_ERROR(afbBindingRoot, "secs_write:Failed to get req value parameter");
-		return;
-	}
-
-	AFB_API_DEBUG(afbBindingRoot, "put: key=%s, value=%s", DATA_STR(key), DATA_STR(data));
-
-	int res = dbp->put(dbp, NULL, &key, &data, DB_OVERWRITE_DUP);
-	if (res == 0)
-	{
-		afb_req_reply(req, NULL, NULL, NULL);
-	}
-	else
-	{
-		AFB_API_ERROR(afbBindingRoot, "Failed to insert %s with %s", DATA_STR(key), DATA_STR(data));
-		afb_req_reply_f(req, NULL, "failed", "%s", db_strerror(res));
-	}
-
-	secs_sync_database();
-}
-
-/**
- * @brief API delete
- */
-static void secs_delete(afb_req_t req)
-{
-	DBT key;
-
-	if (get_key(req, &key))
-		return;
-
-	AFB_API_DEBUG(afbBindingRoot, "delete: key=%s", DATA_STR(key));
-
-	int ret;
-
-	ret = dbp->del(dbp, NULL, &key, 0);
-	if (ret == 0)
-	{
-		afb_req_reply_f(req, NULL, NULL, NULL);
-	}
-	else
-	{
-		AFB_API_ERROR(afbBindingRoot, "can't delete key %s", DATA_STR(key));
-		afb_req_reply_f(req, NULL, "failed", "%s", db_strerror(ret));
-	}
-}
-
-static const struct afb_auth _afb_auths_v2_monitor[] = {
-	{.type = afb_auth_Permission, .text = "urn:AGL:permission:monitor:public:set"},
-	{.type = afb_auth_Permission, .text = "urn:AGL:permission:monitor:public:get"},
-	{.type = afb_auth_Or, .first = &_afb_auths_v2_monitor[1], .next = &_afb_auths_v2_monitor[0]}};
-
-static const afb_verb_t verbs[] = {
-	{.verb = "read", .session = AFB_SESSION_NONE, .callback = secs_read, .auth = NULL},
-	{.verb = "write", .session = AFB_SESSION_NONE, .callback = secs_write, .auth = NULL},
-	{.verb = "delete", .session = AFB_SESSION_NONE, .callback = secs_delete, .auth = NULL},
-	{NULL}};
-
 const afb_binding_t afbBindingExport = {
 	.api = "secstorage",
 	.specification = NULL,
 	.verbs = verbs,
-	.preinit = NULL,
+	.preinit = preinit_secure_storage_binding,
 	.init = init_secure_storage_binding,
 	.onevent = NULL,
 	.userdata = NULL,
