@@ -46,7 +46,7 @@ static DB *dbp;
 #define VALUE_MAX_LEN 4096
 #define KEY_MAX_LEN 4096
 #define DB_MAX_SIZE 16777216
-
+//TODO use
 #define DATA_SET(k, d, s)            \
 	do                               \
 	{                                \
@@ -227,7 +227,7 @@ static int get_admin_key(afb_req_t req, char *data, int check_patch_end)
 	{
 		return -1;
 	}
-	if (!check_patch_end ^ (req_key[strlen(req_key) - 1] == '/'))
+	if ((check_patch_end != 2) && !check_patch_end ^ (req_key[strlen(req_key) - 1] == '/'))
 	{
 		if (check_patch_end)
 		{ //The key name can contain path separators, '/', to
@@ -562,6 +562,13 @@ long int getdbsize()
 	return ftell(fp);
 }
 
+/*
+
+@return
+* 0 if first_key != second_second
+* 1 if second_second start with first_key
+* 2 if first_key = second_second
+*/
 int compare_key_path(char *first_key, char *second_second)
 {
 	while (*first_key == *second_second)
@@ -575,7 +582,14 @@ int compare_key_path(char *first_key, char *second_second)
 
 	if (*first_key == '\0')
 	{
-		return 1;
+		if (*second_second == '\0')
+		{
+			return 2;
+		}
+		else
+		{
+			return 1;
+		}
 	}
 	else
 	{
@@ -583,6 +597,8 @@ int compare_key_path(char *first_key, char *second_second)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------
+#ifdef ALLOW_SECS_ADMIN
 static int copy_db_file(const char *from, const char *to)
 {
 	AFB_API_NOTICE(afbBindingRoot, "copy %s to %s.", to, from);
@@ -648,14 +664,13 @@ out_error:
 	errno = saved_errno;
 	return -1;
 }
-//--------------------------------------------------------------------------------------------------
-#ifdef ALLOW_SECS_ADMIN
 
 /**
  * Create an iterator for listing entries in secure storage under the specified path.
  */
 static void secStoreAdmin_CreateIter(afb_req_t req)
 {
+
 	if (cursor)
 	{
 		cursor->close(cursor);
@@ -671,7 +686,7 @@ static void secStoreAdmin_CreateIter(afb_req_t req)
 		AFB_API_ERROR(afbBindingRoot, "secStoreAdmin_createiter:Failed to init cursor");
 		return;
 	}
-
+	//TODO return fake iter
 	afb_req_reply(req, NULL, NULL, NULL);
 }
 
@@ -705,7 +720,7 @@ static void secStoreAdmin_Next(afb_req_t req)
 
 	while (!cursor->get(cursor, &ckey, &cvalue, DB_NEXT))
 	{
-		if (compare_key_path(cursor_key_pass, DATA_STR(ckey)))
+		if (compare_key_path(cursor_key_pass, DATA_STR(ckey)) > 0)
 		{
 			break;
 		}
@@ -829,17 +844,43 @@ static void secStoreAdmin_CopyMetaTo(afb_req_t req)
  */
 static void secStoreAdmin_Delete(afb_req_t req)
 {
-	DBT key;
-	char kdata[KEY_MAX_LEN] = "";
-
-	memset(&key, 0, sizeof(DBT));
-
-	if (get_admin_key(req, kdata, 1))
+	DBC *size_cursor;
+	char delete_key_path[KEY_MAX_LEN] = "";
+	int ret;
+	/* get the key */
+	if (get_admin_key(req, delete_key_path, 2))
 	{
+		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
 		return;
 	}
-	DATA_SET(&key, kdata, strlen(kdata) + 1);
-	p_secs_raw_delete(req, &key);
+
+	if (dbp->cursor(dbp, NULL, &size_cursor, 0))
+	{
+		AFB_API_ERROR(afbBindingRoot, "secStoreAdmin_gettotalspace:Failed to init cursor");
+		return;
+	}
+	DBT ckey;
+	DBT cvalue;
+	memset(&ckey, 0, sizeof(DBT));
+	memset(&cvalue, 0, sizeof(DBT));
+
+	while (!size_cursor->get(size_cursor, &ckey, &cvalue, DB_NEXT))
+	{
+		//The key path (to delete) must be the exactly equal to delete_key_path or, if delete_key_path is a directory, include inside.
+		int cmp_path = compare_key_path(delete_key_path, DATA_STR(ckey));
+		if ((cmp_path == 2) || ((cmp_path == 1) && (delete_key_path[strlen(delete_key_path) - 1] == '/')))
+		{
+			ret = dbp->del(dbp, NULL, &ckey, 0);
+			if (ret != 0)
+			{
+				AFB_API_ERROR(afbBindingRoot, "can't delete key %s", DATA_STR(ckey));
+				afb_req_reply_f(req, NULL, "failed", "%s", db_strerror(ret));
+			}
+		}
+	}
+
+	secs_sync_database();
+	afb_req_reply_f(req, NULL, NULL, NULL);
 }
 #endif
 
@@ -851,17 +892,16 @@ static void secStoreAdmin_Delete(afb_req_t req)
  */
 static void secStoreAdmin_GetSize(afb_req_t req)
 {
-	if (cursor)
-	{
-		cursor->close(cursor);
-	}
-	if (get_admin_key(req, cursor_key_pass, 0))
+	DBC *size_cursor;
+	char kdata[KEY_MAX_LEN] = "";
+	/* get the key */
+	if (get_admin_key(req, kdata, 0))
 	{
 		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
 		return;
 	}
 
-	if (dbp->cursor(dbp, NULL, &cursor, 0))
+	if (dbp->cursor(dbp, NULL, &size_cursor, 0))
 	{
 		AFB_API_ERROR(afbBindingRoot, "secStoreAdmin_gettotalspace:Failed to init cursor");
 		return;
@@ -872,9 +912,9 @@ static void secStoreAdmin_GetSize(afb_req_t req)
 	memset(&cvalue, 0, sizeof(DBT));
 
 	long int totalsize = 0;
-	while (!cursor->get(cursor, &ckey, &cvalue, DB_NEXT))
+	while (!size_cursor->get(size_cursor, &ckey, &cvalue, DB_NEXT))
 	{
-		if (compare_key_path(cursor_key_pass, DATA_STR(ckey)))
+		if (compare_key_path(kdata, DATA_STR(ckey)))
 		{
 			totalsize += (cvalue.size) * 16;
 		}
@@ -883,7 +923,6 @@ static void secStoreAdmin_GetSize(afb_req_t req)
 	struct json_object *result;
 	result = json_object_new_object();
 	json_object_object_add(result, "size", json_object_new_int64(totalsize));
-
 	afb_req_reply_f(req, result, NULL, "DB gettotalspace of %s is %li", cursor_key_pass, totalsize);
 }
 
