@@ -749,7 +749,7 @@ static void secStoreAdmin_GetEntry(afb_req_t req)
 		val = json_tokener_parse(DATA_STR(cvalue));
 		json_object_object_add(result, "value", val ? val : json_object_new_string(DATA_STR(ckey)));
 
-		afb_req_reply_f(req, result, NULL, "db success: read %s=%s.", DATA_STR(ckey), DATA_STR(cvalue));
+		afb_req_reply(req, result, NULL, NULL);
 	}
 	else
 	{

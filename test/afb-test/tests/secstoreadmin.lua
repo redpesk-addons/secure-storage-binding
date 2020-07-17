@@ -19,8 +19,8 @@
 --]]
 
 
-local test_prefix="test_SecStorage"
-local api="secstorage"
+local test_prefix= "test_SecStorage"
+local api="secstoreadmin"
 
 local verb='Write'
 local test_name=test_prefix..'_'..api..'_'..verb
