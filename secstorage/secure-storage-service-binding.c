@@ -25,7 +25,7 @@
 #define AFB_BINDING_VERSION 3
 #include <afb/afb-binding.h>
 
-#include <db.h>
+#include <libdb4/db.h>
 
 #ifndef ALLOW_SECS_ADMIN
 #define ALLOW_SECS_ADMIN 1

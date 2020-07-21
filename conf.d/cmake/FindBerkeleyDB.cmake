@@ -10,6 +10,7 @@
 #  DB_LIBRARY, where to find the BerkeleyDB library.
 
 FIND_PATH(DB_INCLUDE_DIR db.h
+  /usr/include/libdb4
   /usr/local/include/db4
   /usr/local/include
   /usr/include/db4
@@ -19,7 +20,7 @@ FIND_PATH(DB_INCLUDE_DIR db.h
 SET(DB_NAMES ${DB_NAMES} db)
 FIND_LIBRARY(DB_LIBRARY
   NAMES ${DB_NAMES}
-  PATHS /usr/lib /usr/local/lib
+  PATHS /usr/lib /usr/local/lib /usr/lib64/libdb4/
   )
 
 IF (DB_LIBRARY AND DB_INCLUDE_DIR)
