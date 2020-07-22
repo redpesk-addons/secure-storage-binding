@@ -27,6 +27,7 @@
 
 #include <libdb4/db.h>
 
+//TODO use SECSTOREADMIN to activate Admin support
 #ifndef ALLOW_SECS_ADMIN
 #define ALLOW_SECS_ADMIN 1
 #endif
@@ -43,10 +44,10 @@ static DB *dbp;
 #define DATA_PTR(k) ((void *)((k).data))
 #define DATA_STR(k) ((char *)((k).data))
 
-#define VALUE_MAX_LEN 4096
-#define KEY_MAX_LEN 4096
+#define VALUE_MAX_LEN 8192
+#define KEY_MAX_LEN 255
 #define DB_MAX_SIZE 16777216
-//TODO use
+
 #define DATA_SET(k, d, s)            \
 	do                               \
 	{                                \
@@ -64,6 +65,9 @@ static char cursor_key_pass[KEY_MAX_LEN] = "";
 #define GLOBAL_PATH "/global"
 #endif
 
+/**
+* 
+*/
 static int get_passwd(char *db_passwd)
 {
 	FILE *fp;
@@ -90,6 +94,9 @@ static int get_passwd(char *db_passwd)
 	return 0;
 }
 
+/**
+* Open the secure store data base
+*/
 static int open_database(const char *path)
 {
 	char db_passwd[PATH_MAX];
@@ -103,14 +110,15 @@ static int open_database(const char *path)
 		AFB_API_ERROR(afbBindingRoot, "Failed database creation: %s.", db_strerror(res));
 		return -1;
 	}
-
+	/*
+	Get the password to encrypte the database.
+	*/
 	int res_pwd = get_passwd(db_passwd);
 	if (res_pwd != 0)
 	{
 		AFB_API_ERROR(afbBindingRoot, "Failed to get database password.");
 		return -1;
 	}
-
 	dbp->set_encrypt(dbp,			  /* DB structure pointer */
 					 db_passwd,		  /*Passworld to  encryption/decryption of the database*/
 					 DB_ENCRYPT_AES); /*Use the Rijndael/AES algorithm for encryption or decryption.*/
@@ -133,7 +141,7 @@ static int open_database(const char *path)
 }
 
 /**
- * @brief sync data base to physical storage
+ * Sync data base to physical storage
  */
 static void secs_sync_database(void)
 {
@@ -142,7 +150,7 @@ static void secs_sync_database(void)
 }
 
 /**
- * @brief Get the database's path
+ * Get the database's path
  */
 static int get_db_path(char *buffer, size_t size)
 {
@@ -179,13 +187,14 @@ static int get_rawkey(afb_req_t req, const char **req_key)
 
 	struct json_object *args;
 	struct json_object *item;
-	/* get the key */
+	/* get the key value of the req*/
 	args = afb_req_json(req);
 	if (!json_object_object_get_ex(args, "key", &item))
 	{
 		afb_req_reply(req, NULL, "no-key", NULL);
 		return -1;
 	}
+	/* Convert the req key value to string*/
 	if (!item || !((*req_key) = json_object_get_string(item)) || !(lreq_key = strlen(*req_key)))
 	{
 		afb_req_reply(req, NULL, "bad-key", NULL);
@@ -203,13 +212,14 @@ static int get_path(afb_req_t req, char *path)
 	const char *req_key;
 	struct json_object *args;
 	struct json_object *item;
-	/* get the key */
+	/* get the key of the req*/
 	args = afb_req_json(req);
 	if (!json_object_object_get_ex(args, "path", &item))
 	{
 		afb_req_reply(req, NULL, "no-path", NULL);
 		return -1;
 	}
+	/* Convert the req path value to string*/
 	if (!item || !(req_key = json_object_get_string(item)) || !(lreq_key = strlen(req_key)))
 	{
 		afb_req_reply(req, NULL, "bad-path", NULL);
@@ -220,18 +230,32 @@ static int get_path(afb_req_t req, char *path)
 }
 
 #ifdef ALLOW_SECS_ADMIN
-static int get_admin_key(afb_req_t req, char *data, int check_patch_end)
+/**
+* check_path_end:
+*	0: The path must end with a "/"
+*	1: The path must not end with a "/"
+*	2: Do not Check the end of the path.
+*/
+static int get_admin_key(afb_req_t req, char *data, int check_path_end)
 {
 	const char *req_key = NULL;
 	if (get_rawkey(req, &req_key))
 	{
 		return -1;
 	}
-	if ((check_patch_end != 2) && !check_patch_end ^ (req_key[strlen(req_key) - 1] == '/'))
+
+	if (req_key[0] != '/')
 	{
-		if (check_patch_end)
+		AFB_API_ERROR(afbBindingRoot, "Admin path requested must start with \"%s\"", "/");
+		afb_req_reply(req, NULL, "Admin path must be absolute", NULL);
+		return -1;
+	}
+
+	if ((check_path_end != 2) && !check_path_end ^ (req_key[strlen(req_key) - 1] == '/'))
+	{
+		if (check_path_end)
 		{ //The key name can contain path separators, '/', to
-			//* help organize an app's data.  Key names cannot contain a trailing separator.
+			//* help organize an app's data.  Key names cannot end with a trailing separator.
 			AFB_API_ERROR(afbBindingRoot, "Forbiden use of char \"%s\" at the end of key request", "/");
 			afb_req_reply(req, NULL, "Forbiden char at the end of key request", NULL);
 			return -1;
@@ -296,7 +320,7 @@ static int get_key(afb_req_t req, char *data, int global)
 		return -1;
 	}
 
-	if (!strcat(data, "/"))
+	if (req_key[0] != "/" && !strcat(data, "/"))
 	{
 		afb_req_reply(req, NULL, "key generation failed", NULL);
 		return -1;
@@ -337,7 +361,7 @@ static int get_value(afb_req_t req, DBT *data)
 }
 
 /**
- * @brief API read
+ * API read
  */
 static void p_secs_raw_read(afb_req_t req, DBT *key)
 {
@@ -372,7 +396,7 @@ static void p_secs_raw_read(afb_req_t req, DBT *key)
 }
 
 /**
- * @brief API write
+ * API write
  */
 static void p_secs_raw_write(afb_req_t req, DBT *key, DBT *data)
 {
@@ -394,7 +418,7 @@ static void p_secs_raw_write(afb_req_t req, DBT *key, DBT *data)
 }
 
 /**
- * @brief API delete
+ * API delete
  */
 static void p_secs_raw_delete(afb_req_t req, DBT *key)
 {
@@ -417,7 +441,7 @@ static void p_secs_raw_delete(afb_req_t req, DBT *key)
 }
 
 /**
- * @brief API read
+ * API read
  */
 static void p_secs_read(afb_req_t req, int global)
 {
@@ -433,7 +457,7 @@ static void p_secs_read(afb_req_t req, int global)
 }
 
 /**
- * @brief API write
+ * API write
  */
 static void p_secs_write(afb_req_t req, int global)
 {
@@ -459,7 +483,7 @@ static void p_secs_write(afb_req_t req, int global)
 }
 
 /**
- * @brief API delete
+ * API delete
  */
 static void p_secs_delete(afb_req_t req, int global)
 {
@@ -481,6 +505,11 @@ static void p_secs_delete(afb_req_t req, int global)
  * the new value. If the item doesn't already exist, it'll be created.
  * If the item name is not valid or the buffer is NULL, this function will kill the calling client.
  *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NO_MEMORY if there isn't enough memory to store the item.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secs_Write(afb_req_t req)
 {
@@ -491,6 +520,13 @@ static void secs_Write(afb_req_t req)
  * Reads an item from secure storage.
  * If the item name is not valid or the buffer is NULL, this function will kill the calling client.
  *
+ * @return
+ *      LE_OK if successful.
+ *      LE_OVERFLOW if the buffer is too small to hold the entire item. No data will be written to
+ *                  the buffer in this case.
+ *      LE_NOT_FOUND if the item doesn't exist.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secs_Read(afb_req_t req)
 {
@@ -501,6 +537,11 @@ static void secs_Read(afb_req_t req)
  * Deletes an item from secure storage.
  * If the item name is not valid, this function will kill the calling client.
  *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NOT_FOUND if the item doesn't exist.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secs_Delete(afb_req_t req)
 {
@@ -516,6 +557,11 @@ static void secs_Delete(afb_req_t req)
  * the new value. If the item doesn't already exist, it'll be created.
  * If the item name is not valid or the buffer is NULL, this function will kill the calling client.
  *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NO_MEMORY if there isn't enough memory to store the item.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secs_Write_global(afb_req_t req)
 {
@@ -526,6 +572,13 @@ static void secs_Write_global(afb_req_t req)
  * Reads an item from secure storage.
  * If the item name is not valid or the buffer is NULL, this function will kill the calling client.
  *
+ * @return
+ *      LE_OK if successful.
+ *      LE_OVERFLOW if the buffer is too small to hold the entire item. No data will be written to
+ *                  the buffer in this case.
+ *      LE_NOT_FOUND if the item doesn't exist.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secs_Read_global(afb_req_t req)
 {
@@ -536,6 +589,11 @@ static void secs_Read_global(afb_req_t req)
  * Deletes an item from secure storage.
  * If the item name is not valid, this function will kill the calling client.
  *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NOT_FOUND if the item doesn't exist.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secs_Delete_global(afb_req_t req)
 {
@@ -616,7 +674,9 @@ static int copy_db_file(const char *from, const char *to)
 
 	fd_to = open(to, O_WRONLY | O_CREAT | O_EXCL, 0666);
 	if (fd_to < 0)
+	{
 		goto out_error;
+	}
 
 	AFB_API_NOTICE(afbBindingRoot, "Start copy");
 	while (nread = read(fd_from, buf, sizeof buf), nread > 0)
@@ -667,14 +727,19 @@ out_error:
 
 /**
  * Create an iterator for listing entries in secure storage under the specified path.
+ *
+ * @return
+ *      An iterator reference if successful.
+ *      NULL if the secure storage is currently unavailable.
  */
 static void secStoreAdmin_CreateIter(afb_req_t req)
 {
-
+	/*If cursor is set to a old value close it*/
 	if (cursor)
 	{
 		cursor->close(cursor);
 	}
+	/* cursor_key_pass must be set at least at "/" */
 	if (get_admin_key(req, cursor_key_pass, 0))
 	{
 		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
@@ -686,8 +751,10 @@ static void secStoreAdmin_CreateIter(afb_req_t req)
 		AFB_API_ERROR(afbBindingRoot, "secStoreAdmin_createiter:Failed to init cursor");
 		return;
 	}
-	//TODO return fake iter
-	afb_req_reply(req, NULL, NULL, NULL);
+	struct json_object *result = json_object_new_object();
+	json_object_object_add(result, "iterator", json_object_new_int64(1));
+
+	afb_req_reply(req, result, NULL, NULL);
 }
 
 /**
@@ -710,6 +777,10 @@ static void secStoreAdmin_DeleteIter(afb_req_t req)
  * Go to the next entry in the iterator.  This should be called at least once before accessing the
  * entry.  After the first time this function is called successfully on an iterator the first entry
  * will be available.
+ *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NOT_FOUND if there are no more entries available.
  */
 static void secStoreAdmin_Next(afb_req_t req)
 {
@@ -730,6 +801,11 @@ static void secStoreAdmin_Next(afb_req_t req)
 
 /**
  * Get the current entry's name.
+ *
+ * @return
+ *      LE_OK if successful.
+ *      LE_OVERFLOW if the buffer is too small to hold the entry name.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
  */
 static void secStoreAdmin_GetEntry(afb_req_t req)
 {
@@ -763,6 +839,12 @@ static void secStoreAdmin_GetEntry(afb_req_t req)
  *
  * @note
  *      The specified path must be an absolute path.
+ *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NO_MEMORY if there isn't enough memory to store the item.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secStoreAdmin_Write(afb_req_t req)
 {
@@ -793,6 +875,14 @@ static void secStoreAdmin_Write(afb_req_t req)
  *
  * @note
  *      The specified path must be an absolute path.
+ *
+ * @return
+ *      LE_OK if successful.
+ *      LE_OVERFLOW if the buffer is too small to hold the entire item. No data will be written to
+ *                  the buffer in this case.
+ *      LE_NOT_FOUND if the item doesn't exist.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secStoreAdmin_Read(afb_req_t req)
 {
@@ -813,6 +903,12 @@ static void secStoreAdmin_Read(afb_req_t req)
 
 /**
  * Copy the meta file to the specified path.
+ *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NOT_FOUND if the meta file does not exist.
+ *      LE_UNAVAILABLE if the sfs is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secStoreAdmin_CopyMetaTo(afb_req_t req)
 {
@@ -841,6 +937,12 @@ static void secStoreAdmin_CopyMetaTo(afb_req_t req)
  *
  * @note
  *      The specified path must be an absolute path.
+ *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NOT_FOUND if the path doesn't exist.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secStoreAdmin_Delete(afb_req_t req)
 {
@@ -889,6 +991,12 @@ static void secStoreAdmin_Delete(afb_req_t req)
  *
  * @note
  *      The specified path must be an absolute path.
+ *
+ * @return
+ *      LE_OK if successful.
+ *      LE_NOT_FOUND if the path doesn't exist.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secStoreAdmin_GetSize(afb_req_t req)
 {
@@ -928,6 +1036,11 @@ static void secStoreAdmin_GetSize(afb_req_t req)
 
 /**
  * Gets the total space and the available free space in secure storage.
+ *
+ * @return
+ *      LE_OK if successful.
+ *      LE_UNAVAILABLE if the secure storage is currently unavailable.
+ *      LE_FAULT if there was some other error.
  */
 static void secStoreAdmin_GetTotalSpace(afb_req_t req)
 {
@@ -977,7 +1090,7 @@ static const afb_verb_t admin_verbs[] = {
 	{NULL}};
 
 /**
- * @brief pre Initialize the binding.
+ * pre Initialize the binding.
  * @return Exit code, zero if success.
  */
 static int preinit_secure_storage_binding(afb_api_t api)
@@ -1009,7 +1122,7 @@ static int preinit_secure_storage_binding(afb_api_t api)
 }
 
 /**
- * @brief Initialize the binding.
+ * Initialize the binding.
  * @return Exit code, zero if success.
  */
 static int init_secure_storage_binding(afb_api_t api)

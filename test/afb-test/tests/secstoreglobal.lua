@@ -19,31 +19,95 @@
 --]]
 
 
-local test_prefix= "test_SecStorage"
+local test_prefix= "test_SecStorageGlobal"
 local api="secstoreglobal"
 
-local verb='Write'
-local test_name=test_prefix..'_'..api..'_'..verb
-_AFT.testVerbStatusSuccess(test_name,api, verb, {key='name',value='Ronan'} )
+local verb='Read'
+local test_name=test_prefix..'_'..api..'_'..verb..'_Error'..'_Read_empty'
+_AFT.testVerbStatusError(test_name, api, verb, {key='noentry'}, 'None')
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Write'
+test_name=test_prefix..'_'..api..'_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='name',value='IoT.bzh'} )
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Write'
+test_name=test_prefix..'_'..api..'_Level1_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='/level1/name',value='level1_IoT.bzh'} )
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Write'
+test_name=test_prefix..'_'..api..'_Level2_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='/level1/level2/name',value='level2_IoT.bzh'} )
 _AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
 _AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
 verb='Read'
 test_name=test_prefix..'_'..api..'_'..verb
 _AFT.describe(test_name,function()
-  _AFT.assertVerbResponseEquals(api, verb, {key='name'}, {value='Ronan'})
+_AFT.assertVerbResponseEquals(api, verb, {key='/name'},{value='IoT.bzh'})
 end)
 _AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
 _AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='delete'
-test_name=test_prefix..'_'..api..'_'..verb
-_AFT.testVerbStatusSuccess(test_name,api, verb, {key='name'})
+verb='Read'
+test_name=test_prefix..'_'..api..'_Level1_'..verb
+_AFT.describe(test_name,function()
+_AFT.assertVerbResponseEquals(api, verb, {key='/level1/name'},{value='level1_IoT.bzh'})
+end)
 _AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
 _AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
 verb='Read'
-test_name=test_prefix..'_'..api..'_'..verb..'_Error'
-_AFT.testVerbStatusError(test_name, api, verb, {key='name'}, 'ronan' )
+test_name=test_prefix..'_'..api..'_Level2_'..verb
+_AFT.describe(test_name,function()
+_AFT.assertVerbResponseEquals(api, verb, {key='/level1/level2/name'},{value='level2_IoT.bzh'})
+end)
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Write'
+test_name=test_prefix..'_'..api..'_Error_path'..verb
+_AFT.testVerbStatusError(test_name,api, verb, {key='name/',value='error_IoT.bzh'} )
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Read'
+test_name=test_prefix..'_'..api..'_'..verb..'_Error_'
+_AFT.testVerbStatusError(test_name, api, verb, {key='/global/name'}, 'ronan' )
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Delete'
+test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='name'})
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Delete'
+test_name=test_prefix..'_'..api..'_Level1_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='/level1/name'})
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Delete'
+test_name=test_prefix..'_'..api..'_Level2_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='/level1/level2/name'})
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Delete'
+test_name=test_prefix..'_'..api..'_2_time_'..verb
+_AFT.testVerbStatusError(test_name,api, verb, {key='name'})
+_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
+_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+verb='Delete'
+test_name=test_prefix..'_'..api..'_2_'..verb
+_AFT.testVerbStatusError(test_name,api, verb, {key='/global'})
 _AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
 _AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)

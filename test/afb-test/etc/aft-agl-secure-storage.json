@@ -14,8 +14,8 @@
     },
     "testVerb": [
         {
-            "uid": "short",
-            "info": "Launch the short session of tests",
+            "uid": "securestorage",
+            "info": "Launch the securestorage session of tests",
             "action": "lua://AFT#_launch_test",
             "args": {
                 "trace": "securestorage",
@@ -24,7 +24,7 @@
         },
         {
             "uid": "secstoreglobal",
-            "info": "Launch the short session of tests",
+            "info": "Launch the secstoreglobal session of tests",
             "action": "lua://AFT#_launch_test",
             "args": {
                 "trace": "secstoreglobal",
@@ -33,7 +33,7 @@
         },
         {
             "uid": "secstoreadmin",
-            "info": "Launch the short session of tests",
+            "info": "Launch the secstoreadmin session of tests",
             "action": "lua://AFT#_launch_test",
             "args": {
                 "trace": "secstoreadmin",

@@ -6,3 +6,4 @@ nbproject/
 *.tar.gz
 .vscode
 __*
+secstorage.db
