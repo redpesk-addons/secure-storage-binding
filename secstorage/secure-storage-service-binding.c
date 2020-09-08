@@ -25,7 +25,7 @@
 #define AFB_BINDING_VERSION 3
 #include <afb/afb-binding.h>
 
-#include <libdb4/db.h>
+#include <db.h>
 
 //TODO use SECSTOREADMIN to activate Admin support
 #ifndef ALLOW_SECS_ADMIN
