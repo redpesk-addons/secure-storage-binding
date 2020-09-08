@@ -37,7 +37,7 @@
 #endif
 
 #define DB_FILE "secstorage.db"			  /* DB On-disk file name*/
-#define DB_PASSWD_FILE "/tmp/test.passwd" /* DB PASSWD On-disk file name*/
+#define DB_PASSWD_FILE "test.passwd" /* DB PASSWD On-disk file name*/
 static DB *dbp;
 /* DB structure handle */
 
@@ -71,17 +71,31 @@ static char cursor_key_pass[KEY_MAX_LEN] = "";
 static int get_passwd(char *db_passwd)
 {
 	FILE *fp;
+	char *afb_workdir;
+	char db_passwd_path[PATH_MAX] = "";
+	int res;
 
-	fp = fopen(DB_PASSWD_FILE, "r");
+	afb_workdir = secure_getenv("AFB_PASSWD_FILE");
+	if (afb_workdir)
+	{
+		res = snprintf(db_passwd_path, sizeof db_passwd_path, "%s/%s", afb_workdir, DB_PASSWD_FILE);
+	}
+	else
+	{
+		AFB_API_ERROR(afbBindingRoot, "Failed to find var env AFB_PASSWD_FILE");
+		return -1;
+	}
+	
+	fp = fopen(db_passwd_path, "r");
 
 	// test for files not existing.
 	if (fp == NULL)
 	{
-		AFB_API_ERROR(afbBindingRoot, "Failed to open DB file passwd: %s", DB_PASSWD_FILE);
+		AFB_API_ERROR(afbBindingRoot, "Failed to open DB file passwd: %s", db_passwd_path);
 		return -1;
 	}
 
-	int res = fscanf(fp, "%s", db_passwd);
+	res = fscanf(fp, "%s", db_passwd);
 
 	if (res != 1)
 	{
