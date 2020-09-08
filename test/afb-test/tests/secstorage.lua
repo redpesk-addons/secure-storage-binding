@@ -17,7 +17,11 @@
 
     NOTE: strict mode: every global variables should be prefixed by '_'
 --]]
+_AFT.setBeforeEach(function() print("~~~~~ Begin Test ~~~~~") end)
+_AFT.setAfterEach(function() print("~~~~~ End Test ~~~~~") end)
 
+_AFT.setBeforeAll(function() print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++") return 0 end)
+_AFT.setAfterAll(function() print("----------------------------------------------------------------------------------------") return 0 end)
 
 local test_prefix="test_SecStorage"
 local api="secstorage"
@@ -25,89 +29,79 @@ local api="secstorage"
 local verb='Read'
 local test_name=test_prefix..'_'..api..'_'..verb..'_Error'..'_Read_empty'
 _AFT.testVerbStatusError(test_name, api, verb, {key='noentry'}, 'None')
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Write'
-test_name=test_prefix..'_'..api..'_'..verb
+local verb='Write'
+local test_name=test_prefix..'_'..api..'_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='name',value='IoT.bzh'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Write'
-test_name=test_prefix..'_'..api..'_Level1_'..verb
+local verb='Write'
+local test_name=test_prefix..'_'..api..'_Level1_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='/level1/name',value='level1_IoT.bzh'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Write'
-test_name=test_prefix..'_'..api..'_Level2_'..verb
+local verb='Write'
+local test_name=test_prefix..'_'..api..'_Level2_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='/level1/level2/name',value='level2_IoT.bzh'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Read'
-test_name=test_prefix..'_'..api..'_'..verb
+local verb='Read'
+local test_name=test_prefix..'_'..api..'_'..verb
 _AFT.describe(test_name,function()
 _AFT.assertVerbResponseEquals(api, verb, {key='/name'},{value='IoT.bzh'})
 end)
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Read'
-test_name=test_prefix..'_'..api..'_Level1_'..verb
+local verb='Read'
+local test_name=test_prefix..'_'..api..'_Level1_'..verb
 _AFT.describe(test_name,function()
 _AFT.assertVerbResponseEquals(api, verb, {key='/level1/name'},{value='level1_IoT.bzh'})
 end)
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Read'
-test_name=test_prefix..'_'..api..'_Level2_'..verb
+
+
+local verb='Read'
+local test_name=test_prefix..'_'..api..'_Level2_'..verb
 _AFT.describe(test_name,function()
 _AFT.assertVerbResponseEquals(api, verb, {key='/level1/level2/name'},{value='level2_IoT.bzh'})
 end)
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Write'
-test_name=test_prefix..'_'..api..'_Error_path'..verb
+
+
+local verb='Write'
+local test_name=test_prefix..'_'..api..'_Error_path'..verb
 _AFT.testVerbStatusError(test_name,api, verb, {key='name/',value='error_IoT.bzh'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Read'
-test_name=test_prefix..'_'..api..'_'..verb..'_Error_'
+
+
+local verb='Read'
+local test_name=test_prefix..'_'..api..'_'..verb..'_Error_'
 _AFT.testVerbStatusError(test_name, api, verb, {key='/global/name'}, 'ronan' )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Delete'
-test_name=test_prefix..'_'..api..'_1_'..verb
+
+
+local verb='Delete'
+local test_name=test_prefix..'_'..api..'_1_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='name'})
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Delete'
-test_name=test_prefix..'_'..api..'_Level1_'..verb
+
+
+local verb='Delete'
+local test_name=test_prefix..'_'..api..'_Level1_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='/level1/name'})
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Delete'
-test_name=test_prefix..'_'..api..'_Level2_'..verb
+
+
+local verb='Delete'
+local test_name=test_prefix..'_'..api..'_Level2_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='/level1/level2/name'})
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Delete'
-test_name=test_prefix..'_'..api..'_2_time_'..verb
+
+
+local verb='Delete'
+local test_name=test_prefix..'_'..api..'_2_time_'..verb
 _AFT.testVerbStatusError(test_name,api, verb, {key='name'})
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
-verb='Delete'
-test_name=test_prefix..'_'..api..'_2_'..verb
+
+
+local verb='Delete'
+local test_name=test_prefix..'_'..api..'_2_'..verb
 _AFT.testVerbStatusError(test_name,api, verb, {key='/global'})
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+

@@ -18,6 +18,11 @@
     NOTE: strict mode: every global variables should be prefixed by '_'
 --]]
 
+_AFT.setBeforeEach(function() print("~~~~~ Begin Test ~~~~~") end)
+_AFT.setAfterEach(function() print("~~~~~ End Test ~~~~~") end)
+
+_AFT.setBeforeAll(function() print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++") return 0 end)
+_AFT.setAfterAll(function() print("----------------------------------------------------------------------------------------") return 0 end)
 
 local test_prefix= "test_SecStorageAdmin"
 local api="secstoreadmin"
@@ -25,56 +30,79 @@ local api="secstoreadmin"
 local verb='Write'
 local test_name=test_prefix..'_'..api..'_1_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='/global/name',value='global_IoT.bzh'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
 
 local verb='Write'
 local test_name=test_prefix..'_'..api..'_2_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='/global/level1/name',value='level1_global_IoT.bzh'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
 
 local verb='Write'
 local test_name=test_prefix..'_'..api..'_3_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='/NoLabel/name',value='NoLabel_IoT.bzh'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
 
 local verb='Write'
 local test_name=test_prefix..'_'..api..'_4_'..verb
 _AFT.testVerbStatusSuccess(test_name,api, verb, {key='/NoLabel/level1/name',value='level1_NoLabel_IoT.bzh'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
+local verb='Write'
+local test_name=test_prefix..'_'..api..'_5_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='/NoLabel/level1/2del',value='test2del'} )
+
+
+local verb='Read'
+local test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.describe(test_name,function()
+  _AFT.assertVerbResponseEquals(api, verb, {key='/NoLabel/level1/2del'}, {value='test2del'}) 
+end)
+
+local verb='Delete'
+local test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='/NoLabel/level1/2del'})
+
 
 local verb='Write'
 local test_name=test_prefix..'_'..api..'_5_'..verb
 _AFT.testVerbStatusError(test_name,api, verb, {key='NotAllow/',value='None'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+
 
 local verb='Write'
 local test_name=test_prefix..'_'..api..'_6_'..verb
 _AFT.testVerbStatusError(test_name,api, verb, {key='/NotAllow/',value='None'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
 local verb='CreateIter'
 local test_name=test_prefix..'_'..api..'_1_'..verb
 _AFT.testVerbStatusError(test_name,api, verb, {key='global/'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
 local verb='CreateIter'
 local test_name=test_prefix..'_'..api..'_2_'..verb
 _AFT.testVerbStatusError(test_name,api, verb, {key='/global'} )
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
 
 local verb='CreateIter'
 local test_name=test_prefix..'_'..api..'_3_'..verb
-_AFT.describe(test_name,function()
-_AFT.assertVerbResponseEquals(api, verb, {key='/global/'},{iterator=1})
-end)
-_AFT.setBefore(test_name,function() print("~~~~~ Begin "..test_name.." ~~~~~") end)
-_AFT.setAfter(test_name,function() print("~~~~~ End "..test_name.." ~~~~~") end)
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='/global/'} )
 
+local verb='Next'
+local test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.testVerbStatusSuccess(test_name, api, verb, {} )
+
+local verb='GetEntry'
+local test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.testVerbStatusSuccess(test_name, api, verb, {} )
+
+local verb='DeleteIter'
+local test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.testVerbStatusSuccess(test_name, api, verb, {} )
+
+local verb='GetTotalSpace'
+local test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.testVerbStatusSuccess(test_name, api, verb, {} )
+
+local verb='CopyMetaTo'
+local test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.testVerbStatusSuccess(test_name, api, verb, {path='/tmp/test_copy.db'} )
+
+verb='GetSize'
+test_name=test_prefix..'_'..api..'_1_'..verb
+_AFT.testVerbStatusSuccess(test_name,api, verb, {key='/NoLabel/'})

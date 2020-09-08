@@ -293,7 +293,7 @@ static int get_key(afb_req_t req, char *data, int global)
 		afb_req_reply(req, NULL, "Forbiden char at the end of key request", NULL);
 		return -1;
 	}
-
+	AFB_API_NOTICE(afbBindingRoot, "RLM data 1 to \"%s\".", data);
 	if (global)
 	{
 		appid = GLOBAL_PATH;
@@ -313,14 +313,12 @@ static int get_key(afb_req_t req, char *data, int global)
 			return -1;
 		}
 	}
-
 	if (!strcat(data, appid))
 	{
 		afb_req_reply(req, NULL, "key generation from application id failed", NULL);
 		return -1;
 	}
-
-	if (req_key[0] != "/" && !strcat(data, "/"))
+	if (req_key[0] != '/' && !strcat(data, "/"))
 	{
 		afb_req_reply(req, NULL, "key generation failed", NULL);
 		return -1;
@@ -927,7 +925,6 @@ static void secStoreAdmin_CopyMetaTo(afb_req_t req)
 	};
 
 	copy_db_file(db_path, db_path_dest);
-
 	afb_req_reply(req, NULL, NULL, NULL);
 }
 

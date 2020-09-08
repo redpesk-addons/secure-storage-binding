@@ -23,7 +23,7 @@ PROJECT_TARGET_ADD(service-secure-storage)
 	# Define project Targets
 	ADD_LIBRARY(${TARGET_NAME} MODULE secure-storage-service-binding.c)
 	TARGET_LINK_LIBRARIES(${TARGET_NAME} ${DB_LIBRARY})
-
+	#TARGET_LINK_OPTIONS(${TARGET_NAME} PUBLIC -fprofile-arcs)
 
 	# Binder exposes a unique public entry point
 	SET_TARGET_PROPERTIES(${TARGET_NAME} PROPERTIES
