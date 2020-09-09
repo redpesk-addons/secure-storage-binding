@@ -307,7 +307,6 @@ static int get_key(afb_req_t req, char *data, int global)
 		afb_req_reply(req, NULL, "Forbiden char at the end of key request", NULL);
 		return -1;
 	}
-	AFB_API_NOTICE(afbBindingRoot, "RLM data 1 to \"%s\".", data);
 	if (global)
 	{
 		appid = GLOBAL_PATH;
@@ -671,7 +670,7 @@ int compare_key_path(char *first_key, char *second_second)
 #ifdef ALLOW_SECS_ADMIN
 static int copy_db_file(const char *from, const char *to)
 {
-	AFB_API_NOTICE(afbBindingRoot, "copy %s to %s.", to, from);
+	AFB_API_NOTICE(afbBindingRoot, "copy %s to %s.", from, to);
 	int fd_to, fd_from;
 	char buf[4096];
 	ssize_t nread;
@@ -711,7 +710,7 @@ static int copy_db_file(const char *from, const char *to)
 		} while (nread > 0);
 	}
 
-	AFB_API_NOTICE(afbBindingRoot, "End copy");
+	AFB_API_DEBUG(afbBindingRoot, "End copy");
 	if (nread == 0)
 	{
 		if (close(fd_to) < 0)
@@ -726,7 +725,7 @@ static int copy_db_file(const char *from, const char *to)
 	}
 
 out_error:
-	AFB_API_NOTICE(afbBindingRoot, "out_error");
+	AFB_API_ERROR(afbBindingRoot, "copy %s to %s.", from, to);
 	saved_errno = errno;
 
 	close(fd_from);
