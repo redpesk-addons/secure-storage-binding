@@ -29,7 +29,7 @@ make widget;
 cd rp-service-secure-storage
 cd build;
 export AFB_PASSWD_FILE=$(pwd)/package-test/var
-afm-test package package-test -c -m SERVICE;
+afm-test package package-test -c;
 ```
 
 ## Activate authentication security
