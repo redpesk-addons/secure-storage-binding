@@ -34,11 +34,9 @@
 #include <db.h>
 
 //TODO use SECSTOREADMIN to activate Admin support
-#ifndef ALLOW_SECS_ADMIN
-#define ALLOW_SECS_ADMIN 1
-#endif
+#define SECSTOREADMIN 1
 
-#ifndef ALLOW_SECS_GLOBAL
+#ifndef DISABLE_SECS_GLOBAL
 #define ALLOW_SECS_GLOBAL 1
 #endif
 
@@ -62,7 +60,7 @@ static DB *dbp;
 		(k)->size = (uint32_t)s;     \
 	} while (0)
 
-#ifdef ALLOW_SECS_ADMIN
+#ifdef SECSTOREADMIN
 static DBC *cursor;
 static char cursor_key_pass[KEY_MAX_LEN] = "";
 #endif
@@ -77,18 +75,18 @@ static char cursor_key_pass[KEY_MAX_LEN] = "";
 static int get_passwd(char *db_passwd)
 {
 	FILE *fp;
-	char *afb_workdir;
+	char *afb_passwd_dir;
 	char db_passwd_path[PATH_MAX] = "";
 	int res;
 
-	afb_workdir = secure_getenv("AFB_PASSWD_FILE");
-	if (afb_workdir)
+	afb_passwd_dir = secure_getenv("AFB_PASSWD_DIR");
+	if (afb_passwd_dir)
 	{
-		res = snprintf(db_passwd_path, sizeof db_passwd_path, "%s/%s", afb_workdir, DB_PASSWD_FILE);
+		res = snprintf(db_passwd_path, sizeof db_passwd_path, "%s/%s", afb_passwd_dir, DB_PASSWD_FILE);
 	}
 	else
 	{
-		AFB_API_ERROR(afbBindingRoot, "Failed to find var env AFB_PASSWD_FILE");
+		AFB_API_ERROR(afbBindingRoot, "Failed to find var env AFB_PASSWD_DIR");
 		return -1;
 	}
 	
@@ -131,7 +129,7 @@ static int open_database(const char *path)
 		return -1;
 	}
 	/*
-	Get the password to encrypte the database.
+	Get the password to encrypt the database.
 	*/
 	int res_pwd = get_passwd(db_passwd);
 	if (res_pwd != 0)
@@ -249,7 +247,6 @@ static int get_path(afb_req_t req, char *path)
 	return 0;
 }
 
-#ifdef ALLOW_SECS_ADMIN
 /**
 * check_path_end:
 *	0: The path must end with a "/"
@@ -290,7 +287,6 @@ static int get_admin_key(afb_req_t req, char *data, int check_path_end)
 	strcpy(data, req_key);
 	return 0;
 }
-#endif
 
 /**
  * Returns the database key for the 'req'
@@ -673,7 +669,7 @@ int compare_key_path(char *first_key, char *second_second)
 }
 
 //--------------------------------------------------------------------------------------------------
-#ifdef ALLOW_SECS_ADMIN
+#ifdef SECSTOREADMIN
 static int copy_db_file(const char *from, const char *to)
 {
 	AFB_API_NOTICE(afbBindingRoot, "copy %s to %s.", from, to);
@@ -1017,9 +1013,9 @@ static void secStoreAdmin_Delete(afb_req_t req)
 static void secStoreAdmin_GetSize(afb_req_t req)
 {
 	DBC *size_cursor;
-	char kdata[KEY_MAX_LEN] = "";
+	char cursor_key[KEY_MAX_LEN] = "";
 	/* get the key */
-	if (get_admin_key(req, kdata, 0))
+	if (get_admin_key(req, cursor_key, 0))
 	{
 		AFB_API_ERROR(afbBindingRoot, "secs_read:Failed to get req key parameter");
 		return;
@@ -1038,7 +1034,7 @@ static void secStoreAdmin_GetSize(afb_req_t req)
 	long int totalsize = 0;
 	while (!size_cursor->get(size_cursor, &ckey, &cvalue, DB_NEXT))
 	{
-		if (compare_key_path(kdata, DATA_STR(ckey)))
+		if (compare_key_path(cursor_key, DATA_STR(ckey)))
 		{
 			totalsize += (cvalue.size) * 16;
 		}
@@ -1047,7 +1043,7 @@ static void secStoreAdmin_GetSize(afb_req_t req)
 	struct json_object *result;
 	result = json_object_new_object();
 	json_object_object_add(result, "size", json_object_new_int64(totalsize));
-	afb_req_reply_f(req, result, NULL, "DB gettotalspace of %s is %li", cursor_key_pass, totalsize);
+	afb_req_reply_f(req, result, NULL, "DB gettotalspace of %s is %li", cursor_key, totalsize);
 }
 
 /**
@@ -1091,7 +1087,7 @@ static const afb_verb_t global_verbs[] = {
 #endif
 
 static const afb_verb_t admin_verbs[] = {
-#ifdef ALLOW_SECS_ADMIN
+#ifdef SECSTOREADMIN
 	{.verb = "CreateIter", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_CreateIter, .auth = NULL},
 	{.verb = "DeleteIter", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_DeleteIter, .auth = NULL},
 	{.verb = "Next", .session = AFB_SESSION_NONE, .callback = secStoreAdmin_Next, .auth = NULL},
@@ -1111,6 +1107,7 @@ static const afb_verb_t admin_verbs[] = {
  */
 static int preinit_secure_storage_binding(afb_api_t api)
 {
+#ifdef ALLOW_SECS_GLOBAL
 	afb_api_t secStoreGlobal = afb_api_new_api(
 		api,
 		"secstoreglobal",
@@ -1122,7 +1119,7 @@ static int preinit_secure_storage_binding(afb_api_t api)
 	afb_api_set_verbs_v3(
 		secStoreGlobal,
 		global_verbs);
-
+#endif
 	afb_api_t secStoreAdmin = afb_api_new_api(
 		api,
 		"secstoreadmin",

@@ -28,7 +28,7 @@ set(PROJECT_NAME agl-service-secure-storage)
 set(PROJECT_VERSION "1.0")
 set(PROJECT_PRETTY_NAME "secure storage for AGL")
 set(PROJECT_DESCRIPTION "Provide an AGL secure storage Binding")
-set(PROJECT_URL "http://git.ovh.iot/iotbzh/agl-service-secure-storage")
+set(PROJECT_URL "http://git.ovh.iot/redpesk/redpesk-common/secure-storage-binding")
 set(PROJECT_ICON "icon.png")
 set(PROJECT_AUTHOR "Iot-Team")
 set(PROJECT_AUTHOR_MAIL "ronan.lemartret@iot.bzh")
@@ -76,7 +76,6 @@ set (gcc_minimal_version 4.9)
 # -----------------------------
 set (PKG_REQUIRED_LIST
 	json-c
-	afb-daemon
 	afb-helpers
 )
 

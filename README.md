@@ -4,32 +4,18 @@ The Redpesk secure storage is compliant with the [legato](https://legato.io/) se
 [secStore](https://github.com/legatoproject/legato-af/blob/master/interfaces/le_secStore.api) and
 [secStoreAdmin](https://github.com/legatoproject/legato-af/blob/master/interfaces/secureStorage/secStoreAdmin.api).
 
-## Pre-requisites
+## Architecture
 
-## Setup
+You can find a document about the Secure Storage architecture [Here](././docs/1_Architecture.md)
 
-## Build for 'native' Linux distribution (Fedora, openSUSE, Debian, Ubuntu, ...)
+## Installation
 
-```bash
-cd rp-service-secure-storage
-mkdir -p build;
-cd build;
-cmake -DBUILD_TEST_WGT=TRUE -DCMAKE_BUILD_TYPE=COVERAGE ..;
-make;
-make widget;
-```
+You can find a document about how to install the Secure Storage [Here](././docs/./docs/2_Installation.md)
 
-## TEST
+## Usage
 
-### TEST on AGL
+You can find a document about the usage the Secure Storage [Here](././docs/./docs/3_Usage.md)
 
-### Native Linux
+## Description
 
-```bash
-cd rp-service-secure-storage
-cd build;
-export AFB_PASSWD_FILE=$(pwd)/package-test/var
-afm-test package package-test -c;
-```
-
-## Activate authentication security
+You can find a document about the description the Secure Storage [Here](././docs/./docs/4_API_description.md)
