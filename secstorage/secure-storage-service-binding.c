@@ -33,13 +33,6 @@
 
 #include <db.h>
 
-//TODO use SECSTOREADMIN to activate Admin support
-#define SECSTOREADMIN 1
-
-#ifndef DISABLE_SECS_GLOBAL
-#define ALLOW_SECS_GLOBAL 1
-#endif
-
 #define DB_FILE "secstorage.db"			  /* DB On-disk file name*/
 #define DB_PASSWD_FILE "test.passwd" /* DB PASSWD On-disk file name*/
 static DB *dbp;

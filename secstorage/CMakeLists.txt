@@ -37,3 +37,13 @@ PROJECT_TARGET_ADD(service-secure-storage)
 		LABELS "BINDING"
 		OUTPUT_NAME ${TARGET_NAME}
 	)
+
+option(SECSTOREADMIN "Enter Secure Storage Admin mode" OFF)
+if (SECSTOREADMIN)
+  add_definitions(-DSECSTOREADMIN=1)
+endif()
+
+option(ALLOW_SECS_GLOBAL "Enable Secure Storage global access mode" ON)
+if (ALLOW_SECS_GLOBAL)
+  add_definitions(-DALLOW_SECS_GLOBAL=1)
+endif()

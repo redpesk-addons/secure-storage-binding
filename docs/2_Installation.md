@@ -18,12 +18,12 @@ sudo dnf in cmake gcc g++ afb-cmake-modules json-c-devel afb-binding-devel libdb
 cd secure-storage-binding
 mkdir -p build;
 cd build;
-cmake -DBUILD_TEST_WGT=TRUE -DCMAKE_BUILD_TYPE=COVERAGE ..;
-make SECSTOREADMIN=1 ;
-make SECSTOREADMIN=1 widget;
+cmake -DBUILD_TEST_WGT=TRUE -DCMAKE_BUILD_TYPE=COVERAGE -DSECSTOREADMIN=ON ..;
+make ;
+make widget ;
 ```
 
-## TEST
+## Test
 
 If you want to run the test and the code coverage just execute code:
 
