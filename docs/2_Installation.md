@@ -4,7 +4,7 @@
 
 ### Install Dependencies
 
-* Declare redpesk repository: (see [doc](http://redpesk-doc-internal.lorient.iot/docs/en/master/developer-guides/host-configuration/docs/1-Setup-your-build-host.html))
+* Declare redpesk repository: (see [doc]({% chapter_link host-configuration-doc.setup-your-build-host %})
 
 #### Fedora 33
 
