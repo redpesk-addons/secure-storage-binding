@@ -1,8 +1,8 @@
-# Secure Storage binding for Redpesk®
+# Secure Storage binding for redpesk
 
 ## Architecture
 
-The Redpesk Secure Storage binding is base on the [legato.io](https://legato.io/) secure storage API.
+The redpesk Secure Storage binding is base on the [legato.io](https://legato.io/) secure storage API.
 
 * [secure storage](https://docs.legato.io/latest/c_secStore.html)
 * [secure storage Admin](https://docs.legato.io/latest/c_secStoreAdmin.html)

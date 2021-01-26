@@ -1,6 +1,6 @@
 # Secure Storage Service
 
-The Redpesk secure storage is compliant with the [legato](https://legato.io/) secure storage API
+The redpesk secure storage is compliant with the [legato](https://legato.io/) secure storage API
 [secStore](https://github.com/legatoproject/legato-af/blob/master/interfaces/le_secStore.api) and
 [secStoreAdmin](https://github.com/legatoproject/legato-af/blob/master/interfaces/secureStorage/secStoreAdmin.api).
 
