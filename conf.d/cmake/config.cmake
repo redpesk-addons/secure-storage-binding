@@ -24,7 +24,7 @@
 
 # Project Info
 # ------------------
-set(PROJECT_NAME agl-service-secure-storage)
+set(PROJECT_NAME secure-storage-binding)
 set(PROJECT_VERSION "1.0")
 set(PROJECT_PRETTY_NAME "secure storage for AGL")
 set(PROJECT_DESCRIPTION "Provide an AGL secure storage Binding")
