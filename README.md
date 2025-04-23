@@ -1,3 +1,6 @@
+[![Pipeline Status](https://git.ovh.iot/redpesk/redpesk-addons/secure-storage-binding/badges/master/pipeline.svg)](https://git.ovh.iot/redpesk/redpesk-addons/secure-storage-binding/-/pipelines)
+
+
 # Secure Storage Service
 
 The redpesk secure storage is compliant with the [legato](https://legato.io/) secure storage API
