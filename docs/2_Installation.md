@@ -4,9 +4,9 @@
 
 ### Install Dependencies
 
-* Declare redpesk repository: (see [doc]({% chapter_link host-configuration-doc.setup-your-build-host %})
+* Add the redpesk repository to your system. For detailed instructions, refer to the [redpesk documentation](https://docs.redpesk.bzh/).
 
-#### Fedora 33
+#### For example, if you are using Fedora:
 
 ```bash
 sudo dnf in cmake gcc g++ afb-cmake-modules json-c-devel afb-binding-devel libdb-devel findutils procps-ng
@@ -16,22 +16,24 @@ sudo dnf in cmake gcc g++ afb-cmake-modules json-c-devel afb-binding-devel libdb
 
 ```bash
 cd secure-storage-binding
-mkdir -p build;
-cd build;
-cmake -DBUILD_TEST_WGT=TRUE -DCMAKE_BUILD_TYPE=COVERAGE -DSECSTOREADMIN=ON ..;
-make ;
-make widget ;
+mkdir -p build
+cd build
+cmake -DCMAKE_BUILD_TYPE=COVERAGE -DSECSTOREADMIN=ON ..
+make 
 ```
 
-## Test
-
-If you want to run the test and the code coverage just execute code:
+After running make, the .so file will be generated in the build/secstorage directory :
 
 ```bash
-cd service-secure-storage
-cd build;
-export AFB_PASSWD_DIR=$(pwd)/package-test/var
-mkdir -p ${AFB_PASSWD_DIR}
-echo "test_encryption_key" > ${AFB_PASSWD_DIR}/test.passwd
-afm-test package package-test -c;
+~/secure-storage-binding/build$ tree -L 2
+...
+├── secstorage
+│   ├── afb-service-secure-storage.so
+│   ├── CMakeFiles
+│   ├── cmake_install.cmake
+│   └── Makefile
+...
+
+42 directories, 23 files
+
 ```

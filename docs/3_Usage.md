@@ -9,85 +9,201 @@ At first you need to start the service on your host.
 
 ```bash
 cd service-secure-storage
-cd build;
+cd build
 export AFB_PASSWD_DIR=$(pwd)/package-test/var
 mkdir -p ${AFB_PASSWD_DIR}
 echo "test_encryption_key" > ${AFB_PASSWD_DIR}/test.passwd
-
-afb-daemon --port=1234 \
-           --no-ldpaths \
-           --binding=./package/lib/afb-service-secure-storage.so\
-           --workdir=. \
-           --roothttp=../htdocs \
-           --token= \
-           --verbose \
-           --ws-server=unix:/tmp/secstorage \
-           --ws-server=unix:/tmp/secstoreglobal \
-           --ws-server=unix:/tmp/secstoreadmin
 ```
+
+To launch the binding with the `afb-binder`, execute the following command:
+
+```bash
+$afb-binder -b ./secstorage/afb-service-secure-storage.so -vvv
+``` 
+
+
 
 ### Start secstorage API client
 
 ```bash
-$afb-client-demo -d unix:/tmp/secstorage
+$afb-client -H localhost:1234/api
 
-$ Write {"key":"name","value":"Ronan"}
-{"jtype":"afb-reply","request":{"status":"success"}}
+$secstorage Write {"key":"name","value":"Iheb"}
+ON-REPLY 1:secstorage/Write: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  }
+}
 
-$ Read {"key":"name"}
-{"jtype":"afb-reply","request":{"status":"success","info":"db success: read /NoLabel/name=Ronan."},"response":{"value":"Ronan"}}
 
-$ Delete {"key":"name"}
-{"jtype":"afb-reply","request":{"status":"success"}}
+$secstorage Read {"key":"name"}
+ON-REPLY 2:secstorage/Read: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  },
+  "response":{
+    "value":"Iheb"
+  }
+}
+
+
+$secstorage Delete {"key":"name"}
+ON-REPLY 3:secstorage/Delete: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  }
+}
 ```
 
 ### Start secstorage API secstoreglobal
 
 ```bash
-$ afb-client-demo -d unix:/tmp/secstoreglobal
+$afb-client -H localhost:1234/api
 
-$ Write {"key":"company","value":"IoT.bzh"}
-{"jtype":"afb-reply","request":{"status":"success"}}
+$secstoreglobal Write {"key":"company","value":"IoT.bzh"}
+ON-REPLY 5:secstoreglobal/Write: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  }
+}
 
-$ Read {"key":"company"}
-{"jtype":"afb-reply","request":{"status":"success","info":"db success: read /global/company=IoT.bzh."},"response":{"value":"IoT.bzh"}}
 
-$ Delete {"key":"company"}
-{"jtype":"afb-reply","request":{"status":"success"}}
+$secstoreglobal Read {"key":"company"}
+ON-REPLY 6:secstoreglobal/Read: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  },
+  "response":{
+    "value":"IoT.bzh"
+  }
+}
+
+
+$secstoreglobal Delete {"key":"company"}
+ON-REPLY 7:secstoreglobal/Delete: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  }
+}
 ```
 
 ### Start secstorage API secstoreadmin
 
 ```bash
-$ afb-client-demo -d unix:/tmp/secstoreadmin
+$afb-client -H localhost:1234/api
 
-$ Write {"key":"/NoLabel/email","value":"ronan.lemartret@iot.bzh"}
-{"jtype":"afb-reply","request":{"status":"success"}}
+$ secstoreadmin Write {"key":"/NoLabel/email","value":"iheb.bengaraali@iot.bzh"}
+ON-REPLY 8:secstoreadmin/Write: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  }
+}
 
-$ Read {"key":"/NoLabel/email"}
-{"jtype":"afb-reply","request":{"status":"success","info":"db success: read /NoLabel/email=ronan.lemartret@iot.bzh."},"response":{"value":"ronan.lemartret@iot.bzh"}}
+$ secstoreadmin Read {"key":"/NoLabel/email"}
+ON-REPLY 9:secstoreadmin/Read: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  },
+  "response":{
+    "value":"iheb.bengaraali@iot.bzh"
+  }
+}
 
-$ Delete {"key":"/NoLabel/email"}
+$ secstoreadmin Delete {"key":"/NoLabel/email"}
+ON-REPLY 10:secstoreadmin/Delete: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  }
+}
 
-$ GetTotalSpace
-{"jtype":"afb-reply","request":{"status":"success","info":"DB totalSize is 8192 freeSize 16769024"},"response":{"totalSize":8192,"freeSize":16769024}}
+$ secstoreadmin GetTotalSpace
+ON-REPLY 11:secstoreadmin/GetTotalSpace: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  },
+  "response":{
+    "totalSize":8192,
+    "freeSize":16769024
+  }
+}
 
-$ createiter {"key":"/NoLabel/"}
-{"jtype":"afb-reply","request":{"status":"success"},"response":{"iterator":1}}
 
-$ next
-{"jtype":"afb-reply","request":{"status":"success"}}
+$ secstoreasecstoreadmindmin CreateIter {"key":"/NoLabel/"}
+ON-REPLY 13:secstoreadmin/CreateIter: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  },
+  "response":{
+    "iterator":1
+  }
+}
 
-$ getentry
-{"jtype":"afb-reply","request":{"status":"success"},"response":{"value":"/NoLabel/email"}}
 
-$ deleteIter
+$ secstoreadmin Next
+ON-REPLY 14:secstoreadmin/Next: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  }
+}
 
-$ createiter {"key":"/NoLabel/error"}
 
-$ GetSize {"key":"/NoLabel/"}
-{"jtype":"afb-reply","request":{"status":"success","info":"DB gettotalspace of /NoLabel/ is 384"},"response":{"size":384}}
+$ secstoreadmin GetEntry
+ON-REPLY 16:secstoreadmin/GetEntry: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  },
+  "response":{
+    "value":"/global/name"
+  }
+}
 
-$ copymetato {"path":"/tmp/test_copy.db"}
-{"jtype":"afb-reply","request":{"status":"success"}
+
+$ secstoreadmin DeleteIter
+ON-REPLY 17:secstoreadmin/DeleteIter: OK
+{
+  "jtype":"afb-reply",
+  "request":{
+    "status":"success",
+    "code":0
+  }
+}
 ```
