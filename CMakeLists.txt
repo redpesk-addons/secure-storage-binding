@@ -41,7 +41,7 @@ target_link_libraries(secure-storage-binding
     ${DB_LIBRARY}
 )
 
-option(SECSTOREADMIN "Enter Secure Storage Admin mode" OFF)
+option(SECSTOREADMIN "Enter Secure Storage Admin mode" ON)
 if (SECSTOREADMIN)
   add_definitions(-DSECSTOREADMIN=1)
 endif()
@@ -61,3 +61,8 @@ endif()
 # Installation
 install(TARGETS secure-storage-binding DESTINATION ${APP_DIR}/lib)
 install(FILES manifest.yml DESTINATION ${APP_DIR}/.rpconfig)
+install(PROGRAMS ${CMAKE_SOURCE_DIR}/redtest/run-redtest
+	DESTINATION /usr/libexec/redtest/${PROJECT_NAME}/)
+install(FILES ${CMAKE_SOURCE_DIR}/test/py-test.py
+    DESTINATION /usr/libexec/redtest/${PROJECT_NAME}/)
+

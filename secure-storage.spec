@@ -6,7 +6,8 @@ License:  APL2.0
 URL: https://git.ovh.iot/redpesk/redpesk-addons/secure-storage-binding
 Source: %{name}-%{version}.tar.gz
 
-BuildRequires:  afm-rpm-macros
+%global _afmappdir %{_prefix}/redpesk
+
 BuildRequires:  cmake
 BuildRequires:  gcc-c++
 BuildRequires:  afb-cmake-modules
@@ -16,6 +17,7 @@ BuildRequires:  pkgconfig(afb-binding)
 BuildRequires:  pkgconfig(afb-libhelpers)
 BuildRequires:  pkgconfig(afb-libcontroller)
 BuildRequires:  pkgconfig(libsystemd) >= 222
+BuildRequires:  pkgconfig(afb-helpers4)
 
 
 %if 0%{?suse_version}
@@ -30,29 +32,37 @@ Requires:       afb-binder
 This binding provide a database API with key/value semantics.
 The backend is currently a Berkeley DB.
 
+%package redtest
+Summary: redtest package
+Requires: %{name} = %{version}-%{release}
+
+%description redtest
+secure-storage-binding redtest
+
 %prep
 %autosetup -p 1
 
 %build
-%afm_configure_cmake
-%afm_build_cmake
+%cmake -DAFM_APP_DIR=%{_afmappdir} .
+%cmake_build
 
 %install
-export NO_BRP_STRIP_DEBUG="true"
-%afm_makeinstall
-
-
-%check
-
-%clean
+%cmake_install
 
 %files
-%afm_files
+%defattr(-,root,root)
+%dir %{_afmappdir}/%{name}
+%{_afmappdir}
 
-%afm_package_test
-
+%files redtest
+%{_libexecdir}/redtest/%{name}/run-redtest
+%{_libexecdir}/redtest/%{name}/py-test.py
 
 %%changelog
+
+
+
+
 
 
 

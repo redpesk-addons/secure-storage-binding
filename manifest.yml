@@ -1,0 +1,23 @@
+%YAML 1.2
+---
+# .rpconfig/manifest.yml documentation: http://redpesk-doc-internal.lorient.iot/docs/en/master/developer-guides/manifest.yml.html
+# This file is used by afb-app-manager when installing a packaged binding, mainly to set the correct permissions
+
+rp-manifest: 1
+id: secure-storage-binding
+version: 2.0.0
+
+description: Provides binding for secure key-value storage using BerkeleyDB
+license: "GPL-3.0-only OR LicenseRef-IoT.bzh"
+
+targets:
+  - target: main
+    content:
+      type: application/vnd.agl.service
+      src: lib/secure-storage-binding.so
+    provided-api:
+      - name: secstorage
+        value: ws
+    required-binding:
+      - name: lib/secure-storage-binding.so
+        value: local

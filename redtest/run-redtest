@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# When this script will be run, the packages your-application.rpm and your-application-redtest.rpm
+# would have been installed on the target
+
+PACKAGE_NAME="secure-storage-binding"
+
+
+# Install or reinstall dependencies
+for p in cmake gcc g++ afb-cmake-modules json-c-devel afb-binding-devel libdb-devel findutils procps-ng afb-libpython afb-test-py; do
+    sudo rpm -q $p && sudo dnf update -y $p || sudo dnf install -y $p 
+done
+
+
+# Create the directory where the logs need to be
+mkdir -p /var/log/redtest/${PACKAGE_NAME}
+
+# Run your tests
+# To be filled by you! Remember, the log file needs to be in ".tap" format
+
+echo "--- Start test python secure storage binding ---"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+export AFB_PASSWD_DIR=${SCRIPT_DIR}/package-test/var
+mkdir -p ${AFB_PASSWD_DIR}
+echo "test_encryption_key" > ${AFB_PASSWD_DIR}/test.passwd
+
+LD_LIBRARY_PATH=/usr/redpesk/secure-storage-binding/lib python ${SCRIPT_DIR}/py-test.py --tap | tee /var/log/redtest/${PACKAGE_NAME}/tests.tap 2>&1
