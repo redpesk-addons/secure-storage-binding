@@ -1,7 +1,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # Install or reinstall dependencies
-for p in afb-binding-devel afb-libpython afb-test-py afb-cmake-modules libdb-devel afb-helpers4; do
+for p in afb-binding-devel afb-libpython afb-test-py afb-cmake-modules libdb-devel afb-helpers4-devel; do
     sudo rpm -q $p && sudo dnf update -y $p || sudo dnf install -y $p 
 done
 
