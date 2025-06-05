@@ -1,10 +1,5 @@
-# Specify that this pipeline is on merge request only
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-
 include:
-   - 'https://raw.githubusercontent.com/redpesk-devtools/gitlab-ci-factory-templates/refs/heads/master/.rp-cli-template-ci.yml'
+   - 'https://git.ovh.iot/redpesk/redpesk-devtools/gitlab-ci-factory-templates/-/raw/@iheb/temp/.rp-cli-template-ci.yml'
 
 stages:
   - lint
@@ -49,5 +44,5 @@ redtest_factory:
   stage: redtest_factory
   needs:
     - build_factory
-  extends: .rp-cli-test
+  extends: .rp-cli-start-test
 
