@@ -28,8 +28,11 @@ echo "test_encryption_key" > ${AFB_PASSWD_DIR}/test.passwd
 
 export GCOV_PREFIX=${SCRIPT_DIR}/coverage_data/
 export GCOV_PREFIX_STRIP=5
-export LD_LIBRARY_PATH=${SCRIPT_DIR}/coverage_data/${PACKAGE_NAME}/lib python3 ${SCRIPT_DIR}/py-test.py --tap | tee /var/log/redtest/${PACKAGE_NAME}/tests.tap 2>&1
 
+MAIN_SO_PATH="/usr/redpesk/secure-storage-binding/lib/"
+export LD_LIBRARY_PATH="${MAIN_SO_PATH}:${SCRIPT_DIR}/coverage_data/${PACKAGE_NAME}/lib:${LD_LIBRARY_PATH:-}"
+
+python3 ${SCRIPT_DIR}/py-test.py --tap | tee /var/log/redtest/${PACKAGE_NAME}/tests.tap 2>&1
 
 ##########################
 # Coverage report section
@@ -57,10 +60,6 @@ lcov --list app_filtered.info
 
 # Generate Cobertura-compatible XML for GitLab coverage
 PYTHONPATH=./lcov_cobertura-2.1.1/ python3 -m lcov_cobertura app_filtered.info -o ${LOG_DIR}/coverage.xml
-
-MAIN_SO_PATH="/usr/redpesk/secure-storage-binding/lib/"
-export LD_LIBRARY_PATH="${MAIN_SO_PATH}:${LD_LIBRARY_PATH:-}"
-
 
 echo "--- Coverage report generated at ${LOG_DIR}/ ---"
 
