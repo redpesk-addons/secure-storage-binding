@@ -1,20 +1,25 @@
 # Installation
 
-## Rebuilding from source
+## From package
 
-### Install Dependencies
-
-* Add the redpesk repository to your system. For detailed instructions, refer to the [redpesk documentation](https://docs.redpesk.bzh/).
-
-#### For example, if you are using Fedora:
+You can run the same command on a target runing a redpesk OS or in the [SDK container]({% chapter_link sdk-container-doc.overview %}) (development mode).
 
 ```bash
-sudo dnf in cmake gcc g++ afb-cmake-modules json-c-devel afb-binding-devel libdb-devel findutils procps-ng
+dnf install secure-storage-binding
 ```
 
-### Build for Linux distribution
+## From sources
+
+When developing inside the SDK container, to install the build dependencies, run the following command:
 
 ```bash
+dnf builddep secure-storage-binding
+```
+
+Then clone and build from sources.
+
+```bash
+git clone https://github.com/redpesk-addons/secure-storage-binding
 cd secure-storage-binding
 mkdir -p build
 cd build
@@ -22,18 +27,4 @@ cmake -DCMAKE_BUILD_TYPE=COVERAGE -DSECSTOREADMIN=ON ..
 make 
 ```
 
-After running make, the .so file will be generated in the build/secstorage directory :
-
-```bash
-~/secure-storage-binding/build$ tree -L 2
-...
-├── secstorage
-│   ├── afb-service-secure-storage.so
-│   ├── CMakeFiles
-│   ├── cmake_install.cmake
-│   └── Makefile
-...
-
-42 directories, 23 files
-
-```
+> Note: To rebuild all (including application framework) from sources, please refer to this [chapter]({% chapter_link host-build-doc.build-framework-on-your-computer %}).
